@@ -9,70 +9,70 @@
  * @this {Promise}
  */
 function finallyConstructor(callback) {
-    var constructor = this.constructor;
-    return this.then(
-        function(value) {
-            // @ts-ignore
-            return constructor.resolve(callback()).then(function() {
-                return value;
-            });
-        },
-        function(reason) {
-            // @ts-ignore
-            return constructor.resolve(callback()).then(function() {
-                // @ts-ignore
-                return constructor.reject(reason);
-            });
-        }
-    );
+  var constructor = this.constructor;
+  return this.then(
+    function(value) {
+      // @ts-ignore
+      return constructor.resolve(callback()).then(function() {
+        return value;
+      });
+    },
+    function(reason) {
+      // @ts-ignore
+      return constructor.resolve(callback()).then(function() {
+        // @ts-ignore
+        return constructor.reject(reason);
+      });
+    }
+  );
 }
 
 function allSettled(arr) {
-    var P = this;
-    return new P(function(resolve, reject) {
-        if (!(arr && typeof arr.length !== 'undefined')) {
-            return reject(
-                new TypeError(
-                    typeof arr +
-                    ' ' +
-                    arr +
-                    ' is not iterable(cannot read property Symbol(Symbol.iterator))'
-                )
-            );
-        }
-        var args = Array.prototype.slice.call(arr);
-        if (args.length === 0) { return resolve([]); }
-        var remaining = args.length;
+  var P = this;
+  return new P(function(resolve, reject) {
+    if (!(arr && typeof arr.length !== 'undefined')) {
+      return reject(
+        new TypeError(
+          typeof arr +
+            ' ' +
+            arr +
+            ' is not iterable(cannot read property Symbol(Symbol.iterator))'
+        )
+      );
+    }
+    var args = Array.prototype.slice.call(arr);
+    if (args.length === 0) { return resolve([]); }
+    var remaining = args.length;
 
-        function res(i, val) {
-            if (val && (typeof val === 'object' || typeof val === 'function')) {
-                var then = val.then;
-                if (typeof then === 'function') {
-                    then.call(
-                        val,
-                        function(val) {
-                            res(i, val);
-                        },
-                        function(e) {
-                            args[i] = { status: 'rejected', reason: e };
-                            if (--remaining === 0) {
-                                resolve(args);
-                            }
-                        }
-                    );
-                    return;
-                }
-            }
-            args[i] = { status: 'fulfilled', value: val };
-            if (--remaining === 0) {
+    function res(i, val) {
+      if (val && (typeof val === 'object' || typeof val === 'function')) {
+        var then = val.then;
+        if (typeof then === 'function') {
+          then.call(
+            val,
+            function(val) {
+              res(i, val);
+            },
+            function(e) {
+              args[i] = { status: 'rejected', reason: e };
+              if (--remaining === 0) {
                 resolve(args);
+              }
             }
+          );
+          return;
         }
+      }
+      args[i] = { status: 'fulfilled', value: val };
+      if (--remaining === 0) {
+        resolve(args);
+      }
+    }
 
-        for (var i = 0; i < args.length; i++) {
-            res(i, args[i]);
-        }
-    });
+    for (var i = 0; i < args.length; i++) {
+      res(i, args[i]);
+    }
+  });
 }
 
 // Store setTimeout reference so promise-polyfill will be unaffected by
@@ -80,16 +80,16 @@ function allSettled(arr) {
 var setTimeoutFunc = setTimeout;
 
 function isArray(x) {
-    return Boolean(x && typeof x.length !== 'undefined');
+  return Boolean(x && typeof x.length !== 'undefined');
 }
 
 function noop() {}
 
 // Polyfill for Function.prototype.bind
 function bind(fn, thisArg) {
-    return function() {
-        fn.apply(thisArg, arguments);
-    };
+  return function() {
+    fn.apply(thisArg, arguments);
+  };
 }
 
 /**
@@ -97,103 +97,103 @@ function bind(fn, thisArg) {
  * @param {Function} fn
  */
 function Promise$1(fn) {
-    if (!(this instanceof Promise$1))
+  if (!(this instanceof Promise$1))
     { throw new TypeError('Promises must be constructed via new'); }
-    if (typeof fn !== 'function') { throw new TypeError('not a function'); }
-    /** @type {!number} */
-    this._state = 0;
-    /** @type {!boolean} */
-    this._handled = false;
-    /** @type {Promise|undefined} */
-    this._value = undefined;
-    /** @type {!Array<!Function>} */
-    this._deferreds = [];
+  if (typeof fn !== 'function') { throw new TypeError('not a function'); }
+  /** @type {!number} */
+  this._state = 0;
+  /** @type {!boolean} */
+  this._handled = false;
+  /** @type {Promise|undefined} */
+  this._value = undefined;
+  /** @type {!Array<!Function>} */
+  this._deferreds = [];
 
-    doResolve(fn, this);
+  doResolve(fn, this);
 }
 
 function handle(self, deferred) {
-    while (self._state === 3) {
-        self = self._value;
+  while (self._state === 3) {
+    self = self._value;
+  }
+  if (self._state === 0) {
+    self._deferreds.push(deferred);
+    return;
+  }
+  self._handled = true;
+  Promise$1._immediateFn(function() {
+    var cb = self._state === 1 ? deferred.onFulfilled : deferred.onRejected;
+    if (cb === null) {
+      (self._state === 1 ? resolve : reject)(deferred.promise, self._value);
+      return;
     }
-    if (self._state === 0) {
-        self._deferreds.push(deferred);
-        return;
+    var ret;
+    try {
+      ret = cb(self._value);
+    } catch (e) {
+      reject(deferred.promise, e);
+      return;
     }
-    self._handled = true;
-    Promise$1._immediateFn(function() {
-        var cb = self._state === 1 ? deferred.onFulfilled : deferred.onRejected;
-        if (cb === null) {
-            (self._state === 1 ? resolve : reject)(deferred.promise, self._value);
-            return;
-        }
-        var ret;
-        try {
-            ret = cb(self._value);
-        } catch (e) {
-            reject(deferred.promise, e);
-            return;
-        }
-        resolve(deferred.promise, ret);
-    });
+    resolve(deferred.promise, ret);
+  });
 }
 
 function resolve(self, newValue) {
-    try {
-        // Promise Resolution Procedure: https://github.com/promises-aplus/promises-spec#the-promise-resolution-procedure
-        if (newValue === self)
-        { throw new TypeError('A promise cannot be resolved with itself.'); }
-        if (
-            newValue &&
-            (typeof newValue === 'object' || typeof newValue === 'function')
-        ) {
-            var then = newValue.then;
-            if (newValue instanceof Promise$1) {
-                self._state = 3;
-                self._value = newValue;
-                finale(self);
-                return;
-            } else if (typeof then === 'function') {
-                doResolve(bind(then, newValue), self);
-                return;
-            }
-        }
-        self._state = 1;
+  try {
+    // Promise Resolution Procedure: https://github.com/promises-aplus/promises-spec#the-promise-resolution-procedure
+    if (newValue === self)
+      { throw new TypeError('A promise cannot be resolved with itself.'); }
+    if (
+      newValue &&
+      (typeof newValue === 'object' || typeof newValue === 'function')
+    ) {
+      var then = newValue.then;
+      if (newValue instanceof Promise$1) {
+        self._state = 3;
         self._value = newValue;
         finale(self);
-    } catch (e) {
-        reject(self, e);
+        return;
+      } else if (typeof then === 'function') {
+        doResolve(bind(then, newValue), self);
+        return;
+      }
     }
+    self._state = 1;
+    self._value = newValue;
+    finale(self);
+  } catch (e) {
+    reject(self, e);
+  }
 }
 
 function reject(self, newValue) {
-    self._state = 2;
-    self._value = newValue;
-    finale(self);
+  self._state = 2;
+  self._value = newValue;
+  finale(self);
 }
 
 function finale(self) {
-    if (self._state === 2 && self._deferreds.length === 0) {
-        Promise$1._immediateFn(function() {
-            if (!self._handled) {
-                Promise$1._unhandledRejectionFn(self._value);
-            }
-        });
-    }
+  if (self._state === 2 && self._deferreds.length === 0) {
+    Promise$1._immediateFn(function() {
+      if (!self._handled) {
+        Promise$1._unhandledRejectionFn(self._value);
+      }
+    });
+  }
 
-    for (var i = 0, len = self._deferreds.length; i < len; i++) {
-        handle(self, self._deferreds[i]);
-    }
-    self._deferreds = null;
+  for (var i = 0, len = self._deferreds.length; i < len; i++) {
+    handle(self, self._deferreds[i]);
+  }
+  self._deferreds = null;
 }
 
 /**
  * @constructor
  */
 function Handler(onFulfilled, onRejected, promise) {
-    this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
-    this.onRejected = typeof onRejected === 'function' ? onRejected : null;
-    this.promise = promise;
+  this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
+  this.onRejected = typeof onRejected === 'function' ? onRejected : null;
+  this.promise = promise;
 }
 
 /**
@@ -203,127 +203,127 @@ function Handler(onFulfilled, onRejected, promise) {
  * Makes no guarantees about asynchrony.
  */
 function doResolve(fn, self) {
-    var done = false;
-    try {
-        fn(
-            function(value) {
-                if (done) { return; }
-                done = true;
-                resolve(self, value);
-            },
-            function(reason) {
-                if (done) { return; }
-                done = true;
-                reject(self, reason);
-            }
-        );
-    } catch (ex) {
+  var done = false;
+  try {
+    fn(
+      function(value) {
         if (done) { return; }
         done = true;
-        reject(self, ex);
-    }
+        resolve(self, value);
+      },
+      function(reason) {
+        if (done) { return; }
+        done = true;
+        reject(self, reason);
+      }
+    );
+  } catch (ex) {
+    if (done) { return; }
+    done = true;
+    reject(self, ex);
+  }
 }
 
 Promise$1.prototype['catch'] = function(onRejected) {
-    return this.then(null, onRejected);
+  return this.then(null, onRejected);
 };
 
 Promise$1.prototype.then = function(onFulfilled, onRejected) {
-    // @ts-ignore
-    var prom = new this.constructor(noop);
+  // @ts-ignore
+  var prom = new this.constructor(noop);
 
-    handle(this, new Handler(onFulfilled, onRejected, prom));
-    return prom;
+  handle(this, new Handler(onFulfilled, onRejected, prom));
+  return prom;
 };
 
 Promise$1.prototype['finally'] = finallyConstructor;
 
 Promise$1.all = function(arr) {
-    return new Promise$1(function(resolve, reject) {
-        if (!isArray(arr)) {
-            return reject(new TypeError('Promise.all accepts an array'));
-        }
+  return new Promise$1(function(resolve, reject) {
+    if (!isArray(arr)) {
+      return reject(new TypeError('Promise.all accepts an array'));
+    }
 
-        var args = Array.prototype.slice.call(arr);
-        if (args.length === 0) { return resolve([]); }
-        var remaining = args.length;
+    var args = Array.prototype.slice.call(arr);
+    if (args.length === 0) { return resolve([]); }
+    var remaining = args.length;
 
-        function res(i, val) {
-            try {
-                if (val && (typeof val === 'object' || typeof val === 'function')) {
-                    var then = val.then;
-                    if (typeof then === 'function') {
-                        then.call(
-                            val,
-                            function(val) {
-                                res(i, val);
-                            },
-                            reject
-                        );
-                        return;
-                    }
-                }
-                args[i] = val;
-                if (--remaining === 0) {
-                    resolve(args);
-                }
-            } catch (ex) {
-                reject(ex);
-            }
+    function res(i, val) {
+      try {
+        if (val && (typeof val === 'object' || typeof val === 'function')) {
+          var then = val.then;
+          if (typeof then === 'function') {
+            then.call(
+              val,
+              function(val) {
+                res(i, val);
+              },
+              reject
+            );
+            return;
+          }
         }
+        args[i] = val;
+        if (--remaining === 0) {
+          resolve(args);
+        }
+      } catch (ex) {
+        reject(ex);
+      }
+    }
 
-        for (var i = 0; i < args.length; i++) {
-            res(i, args[i]);
-        }
-    });
+    for (var i = 0; i < args.length; i++) {
+      res(i, args[i]);
+    }
+  });
 };
 
 Promise$1.allSettled = allSettled;
 
 Promise$1.resolve = function(value) {
-    if (value && typeof value === 'object' && value.constructor === Promise$1) {
-        return value;
-    }
+  if (value && typeof value === 'object' && value.constructor === Promise$1) {
+    return value;
+  }
 
-    return new Promise$1(function(resolve) {
-        resolve(value);
-    });
+  return new Promise$1(function(resolve) {
+    resolve(value);
+  });
 };
 
 Promise$1.reject = function(value) {
-    return new Promise$1(function(resolve, reject) {
-        reject(value);
-    });
+  return new Promise$1(function(resolve, reject) {
+    reject(value);
+  });
 };
 
 Promise$1.race = function(arr) {
-    return new Promise$1(function(resolve, reject) {
-        if (!isArray(arr)) {
-            return reject(new TypeError('Promise.race accepts an array'));
-        }
+  return new Promise$1(function(resolve, reject) {
+    if (!isArray(arr)) {
+      return reject(new TypeError('Promise.race accepts an array'));
+    }
 
-        for (var i = 0, len = arr.length; i < len; i++) {
-            Promise$1.resolve(arr[i]).then(resolve, reject);
-        }
-    });
+    for (var i = 0, len = arr.length; i < len; i++) {
+      Promise$1.resolve(arr[i]).then(resolve, reject);
+    }
+  });
 };
 
 // Use polyfill for setImmediate for performance gains
 Promise$1._immediateFn =
-    // @ts-ignore
-    (typeof setImmediate === 'function' &&
-        function(fn) {
-            // @ts-ignore
-            setImmediate(fn);
-        }) ||
+  // @ts-ignore
+  (typeof setImmediate === 'function' &&
     function(fn) {
-        setTimeoutFunc(fn, 0);
-    };
+      // @ts-ignore
+      setImmediate(fn);
+    }) ||
+  function(fn) {
+    setTimeoutFunc(fn, 0);
+  };
 
 Promise$1._unhandledRejectionFn = function _unhandledRejectionFn(err) {
-    if (typeof console !== 'undefined' && console) {
-        console.warn('Possible Unhandled Promise Rejection:', err); // eslint-disable-line no-console
-    }
+  if (typeof console !== 'undefined' && console) {
+    console.warn('Possible Unhandled Promise Rejection:', err); // eslint-disable-line no-console
+  }
 };
 
 /*
@@ -339,84 +339,84 @@ var hasOwnProperty = Object.prototype.hasOwnProperty;
 var propIsEnumerable = Object.prototype.propertyIsEnumerable;
 
 function toObject(val) {
-    if (val === null || val === undefined) {
-        throw new TypeError('Object.assign cannot be called with null or undefined');
-    }
+	if (val === null || val === undefined) {
+		throw new TypeError('Object.assign cannot be called with null or undefined');
+	}
 
-    return Object(val);
+	return Object(val);
 }
 
 function shouldUseNative() {
-    try {
-        if (!Object.assign) {
-            return false;
-        }
+	try {
+		if (!Object.assign) {
+			return false;
+		}
 
-        // Detect buggy property enumeration order in older V8 versions.
+		// Detect buggy property enumeration order in older V8 versions.
 
-        // https://bugs.chromium.org/p/v8/issues/detail?id=4118
-        var test1 = new String('abc');  // eslint-disable-line no-new-wrappers
-        test1[5] = 'de';
-        if (Object.getOwnPropertyNames(test1)[0] === '5') {
-            return false;
-        }
+		// https://bugs.chromium.org/p/v8/issues/detail?id=4118
+		var test1 = new String('abc');  // eslint-disable-line no-new-wrappers
+		test1[5] = 'de';
+		if (Object.getOwnPropertyNames(test1)[0] === '5') {
+			return false;
+		}
 
-        // https://bugs.chromium.org/p/v8/issues/detail?id=3056
-        var test2 = {};
-        for (var i = 0; i < 10; i++) {
-            test2['_' + String.fromCharCode(i)] = i;
-        }
-        var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
-            return test2[n];
-        });
-        if (order2.join('') !== '0123456789') {
-            return false;
-        }
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test2 = {};
+		for (var i = 0; i < 10; i++) {
+			test2['_' + String.fromCharCode(i)] = i;
+		}
+		var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
+			return test2[n];
+		});
+		if (order2.join('') !== '0123456789') {
+			return false;
+		}
 
-        // https://bugs.chromium.org/p/v8/issues/detail?id=3056
-        var test3 = {};
-        'abcdefghijklmnopqrst'.split('').forEach(function (letter) {
-            test3[letter] = letter;
-        });
-        if (Object.keys(Object.assign({}, test3)).join('') !==
-            'abcdefghijklmnopqrst') {
-            return false;
-        }
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test3 = {};
+		'abcdefghijklmnopqrst'.split('').forEach(function (letter) {
+			test3[letter] = letter;
+		});
+		if (Object.keys(Object.assign({}, test3)).join('') !==
+				'abcdefghijklmnopqrst') {
+			return false;
+		}
 
-        return true;
-    } catch (err) {
-        // We don't expect any of the above to throw, but better to be safe.
-        return false;
-    }
+		return true;
+	} catch (err) {
+		// We don't expect any of the above to throw, but better to be safe.
+		return false;
+	}
 }
 
 var objectAssign = shouldUseNative() ? Object.assign : function (target, source) {
-    var arguments$1 = arguments;
+	var arguments$1 = arguments;
 
-    var from;
-    var to = toObject(target);
-    var symbols;
+	var from;
+	var to = toObject(target);
+	var symbols;
 
-    for (var s = 1; s < arguments.length; s++) {
-        from = Object(arguments$1[s]);
+	for (var s = 1; s < arguments.length; s++) {
+		from = Object(arguments$1[s]);
 
-        for (var key in from) {
-            if (hasOwnProperty.call(from, key)) {
-                to[key] = from[key];
-            }
-        }
+		for (var key in from) {
+			if (hasOwnProperty.call(from, key)) {
+				to[key] = from[key];
+			}
+		}
 
-        if (getOwnPropertySymbols) {
-            symbols = getOwnPropertySymbols(from);
-            for (var i = 0; i < symbols.length; i++) {
-                if (propIsEnumerable.call(from, symbols[i])) {
-                    to[symbols[i]] = from[symbols[i]];
-                }
-            }
-        }
-    }
+		if (getOwnPropertySymbols) {
+			symbols = getOwnPropertySymbols(from);
+			for (var i = 0; i < symbols.length; i++) {
+				if (propIsEnumerable.call(from, symbols[i])) {
+					to[symbols[i]] = from[symbols[i]];
+				}
+			}
+		}
+	}
 
-    return to;
+	return to;
 };
 
 /*!
@@ -597,10 +597,10 @@ function isMobile(param) {
                 !match(windowsPhone),
             universal: match(appleUniversal),
             device: (match(appleIphone) ||
-                    match(appleIpod) ||
-                    match(appleTablet) ||
-                    match(appleUniversal) ||
-                    isAppleTabletOnIos13(nav)) &&
+                match(appleIpod) ||
+                match(appleTablet) ||
+                match(appleUniversal) ||
+                isAppleTabletOnIos13(nav)) &&
                 !match(windowsPhone)
         },
         amazon: {
@@ -616,10 +616,10 @@ function isMobile(param) {
                 !match(androidPhone) &&
                 (match(amazonTablet) || match(androidTablet)),
             device: (!match(windowsPhone) &&
-                    (match(amazonPhone) ||
-                        match(amazonTablet) ||
-                        match(androidPhone) ||
-                        match(androidTablet))) ||
+                (match(amazonPhone) ||
+                    match(amazonTablet) ||
+                    match(androidPhone) ||
+                    match(androidTablet))) ||
                 match(/\bokhttp\b/i)
         },
         windows: {
@@ -645,9 +645,9 @@ function isMobile(param) {
     };
     result.any =
         result.apple.device ||
-        result.android.device ||
-        result.windows.device ||
-        result.other.device;
+            result.android.device ||
+            result.windows.device ||
+            result.other.device;
     result.phone =
         result.apple.phone || result.android.phone || result.windows.phone;
     result.tablet =
@@ -936,60 +936,60 @@ var settings = {
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 function getDefaultExportFromCjs (x) {
-    return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
 }
 
 function createCommonjsModule(fn, basedir, module) {
-    return module = {
-        path: basedir,
-        exports: {},
-        require: function (path, base) {
-            return commonjsRequire(path, (base === undefined || base === null) ? module.path : base);
-        }
-    }, fn(module, module.exports), module.exports;
+	return module = {
+		path: basedir,
+		exports: {},
+		require: function (path, base) {
+			return commonjsRequire(path, (base === undefined || base === null) ? module.path : base);
+		}
+	}, fn(module, module.exports), module.exports;
 }
 
 function getDefaultExportFromNamespaceIfPresent (n) {
-    return n && Object.prototype.hasOwnProperty.call(n, 'default') ? n['default'] : n;
+	return n && Object.prototype.hasOwnProperty.call(n, 'default') ? n['default'] : n;
 }
 
 function getDefaultExportFromNamespaceIfNotNamed (n) {
-    return n && Object.prototype.hasOwnProperty.call(n, 'default') && Object.keys(n).length === 1 ? n['default'] : n;
+	return n && Object.prototype.hasOwnProperty.call(n, 'default') && Object.keys(n).length === 1 ? n['default'] : n;
 }
 
 function getAugmentedNamespace(n) {
-    if (n.__esModule) return n;
-    var a = Object.defineProperty({}, '__esModule', {value: true});
-    Object.keys(n).forEach(function (k) {
-        var d = Object.getOwnPropertyDescriptor(n, k);
-        Object.defineProperty(a, k, d.get ? d : {
-            enumerable: true,
-            get: function () {
-                return n[k];
-            }
-        });
-    });
-    return a;
+	if (n.__esModule) return n;
+	var a = Object.defineProperty({}, '__esModule', {value: true});
+	Object.keys(n).forEach(function (k) {
+		var d = Object.getOwnPropertyDescriptor(n, k);
+		Object.defineProperty(a, k, d.get ? d : {
+			enumerable: true,
+			get: function () {
+				return n[k];
+			}
+		});
+	});
+	return a;
 }
 
 function commonjsRequire () {
-    throw new Error('Dynamic requires are not currently supported by @rollup/plugin-commonjs');
+	throw new Error('Dynamic requires are not currently supported by @rollup/plugin-commonjs');
 }
 
 var eventemitter3 = createCommonjsModule(function (module) {
-    'use strict';
+'use strict';
 
-    var has = Object.prototype.hasOwnProperty
-        , prefix = '~';
+var has = Object.prototype.hasOwnProperty
+  , prefix = '~';
 
-    /**
-     * Constructor to create a storage for our `EE` objects.
-     * An `Events` instance is a plain object whose properties are event names.
-     *
-     * @constructor
-     * @private
-     */
-    function Events() {}
+/**
+ * Constructor to create a storage for our `EE` objects.
+ * An `Events` instance is a plain object whose properties are event names.
+ *
+ * @constructor
+ * @private
+ */
+function Events() {}
 
 //
 // We try to not inherit from `Object.prototype`. In some engines creating an
@@ -998,323 +998,323 @@ var eventemitter3 = createCommonjsModule(function (module) {
 // character to make sure that the built-in object properties are not
 // overridden or used as an attack vector.
 //
-    if (Object.create) {
-        Events.prototype = Object.create(null);
+if (Object.create) {
+  Events.prototype = Object.create(null);
 
-        //
-        // This hack is needed because the `__proto__` property is still inherited in
-        // some old browsers like Android 4, iPhone 5.1, Opera 11 and Safari 5.
-        //
-        if (!new Events().__proto__) { prefix = false; }
+  //
+  // This hack is needed because the `__proto__` property is still inherited in
+  // some old browsers like Android 4, iPhone 5.1, Opera 11 and Safari 5.
+  //
+  if (!new Events().__proto__) { prefix = false; }
+}
+
+/**
+ * Representation of a single event listener.
+ *
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
+ * @constructor
+ * @private
+ */
+function EE(fn, context, once) {
+  this.fn = fn;
+  this.context = context;
+  this.once = once || false;
+}
+
+/**
+ * Add a listener for a given event.
+ *
+ * @param {EventEmitter} emitter Reference to the `EventEmitter` instance.
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} once Specify if the listener is a one-time listener.
+ * @returns {EventEmitter}
+ * @private
+ */
+function addListener(emitter, event, fn, context, once) {
+  if (typeof fn !== 'function') {
+    throw new TypeError('The listener must be a function');
+  }
+
+  var listener = new EE(fn, context || emitter, once)
+    , evt = prefix ? prefix + event : event;
+
+  if (!emitter._events[evt]) { emitter._events[evt] = listener, emitter._eventsCount++; }
+  else if (!emitter._events[evt].fn) { emitter._events[evt].push(listener); }
+  else { emitter._events[evt] = [emitter._events[evt], listener]; }
+
+  return emitter;
+}
+
+/**
+ * Clear event by name.
+ *
+ * @param {EventEmitter} emitter Reference to the `EventEmitter` instance.
+ * @param {(String|Symbol)} evt The Event name.
+ * @private
+ */
+function clearEvent(emitter, evt) {
+  if (--emitter._eventsCount === 0) { emitter._events = new Events(); }
+  else { delete emitter._events[evt]; }
+}
+
+/**
+ * Minimal `EventEmitter` interface that is molded against the Node.js
+ * `EventEmitter` interface.
+ *
+ * @constructor
+ * @public
+ */
+function EventEmitter() {
+  this._events = new Events();
+  this._eventsCount = 0;
+}
+
+/**
+ * Return an array listing the events for which the emitter has registered
+ * listeners.
+ *
+ * @returns {Array}
+ * @public
+ */
+EventEmitter.prototype.eventNames = function eventNames() {
+  var names = []
+    , events
+    , name;
+
+  if (this._eventsCount === 0) { return names; }
+
+  for (name in (events = this._events)) {
+    if (has.call(events, name)) { names.push(prefix ? name.slice(1) : name); }
+  }
+
+  if (Object.getOwnPropertySymbols) {
+    return names.concat(Object.getOwnPropertySymbols(events));
+  }
+
+  return names;
+};
+
+/**
+ * Return the listeners registered for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @returns {Array} The registered listeners.
+ * @public
+ */
+EventEmitter.prototype.listeners = function listeners(event) {
+  var evt = prefix ? prefix + event : event
+    , handlers = this._events[evt];
+
+  if (!handlers) { return []; }
+  if (handlers.fn) { return [handlers.fn]; }
+
+  for (var i = 0, l = handlers.length, ee = new Array(l); i < l; i++) {
+    ee[i] = handlers[i].fn;
+  }
+
+  return ee;
+};
+
+/**
+ * Return the number of listeners listening to a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @returns {Number} The number of listeners.
+ * @public
+ */
+EventEmitter.prototype.listenerCount = function listenerCount(event) {
+  var evt = prefix ? prefix + event : event
+    , listeners = this._events[evt];
+
+  if (!listeners) { return 0; }
+  if (listeners.fn) { return 1; }
+  return listeners.length;
+};
+
+/**
+ * Calls each of the listeners registered for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @returns {Boolean} `true` if the event had listeners, else `false`.
+ * @public
+ */
+EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
+  var arguments$1 = arguments;
+
+  var evt = prefix ? prefix + event : event;
+
+  if (!this._events[evt]) { return false; }
+
+  var listeners = this._events[evt]
+    , len = arguments.length
+    , args
+    , i;
+
+  if (listeners.fn) {
+    if (listeners.once) { this.removeListener(event, listeners.fn, undefined, true); }
+
+    switch (len) {
+      case 1: return listeners.fn.call(listeners.context), true;
+      case 2: return listeners.fn.call(listeners.context, a1), true;
+      case 3: return listeners.fn.call(listeners.context, a1, a2), true;
+      case 4: return listeners.fn.call(listeners.context, a1, a2, a3), true;
+      case 5: return listeners.fn.call(listeners.context, a1, a2, a3, a4), true;
+      case 6: return listeners.fn.call(listeners.context, a1, a2, a3, a4, a5), true;
     }
 
-    /**
-     * Representation of a single event listener.
-     *
-     * @param {Function} fn The listener function.
-     * @param {*} context The context to invoke the listener with.
-     * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
-     * @constructor
-     * @private
-     */
-    function EE(fn, context, once) {
-        this.fn = fn;
-        this.context = context;
-        this.once = once || false;
+    for (i = 1, args = new Array(len -1); i < len; i++) {
+      args[i - 1] = arguments$1[i];
     }
 
-    /**
-     * Add a listener for a given event.
-     *
-     * @param {EventEmitter} emitter Reference to the `EventEmitter` instance.
-     * @param {(String|Symbol)} event The event name.
-     * @param {Function} fn The listener function.
-     * @param {*} context The context to invoke the listener with.
-     * @param {Boolean} once Specify if the listener is a one-time listener.
-     * @returns {EventEmitter}
-     * @private
-     */
-    function addListener(emitter, event, fn, context, once) {
-        if (typeof fn !== 'function') {
-            throw new TypeError('The listener must be a function');
-        }
+    listeners.fn.apply(listeners.context, args);
+  } else {
+    var length = listeners.length
+      , j;
 
-        var listener = new EE(fn, context || emitter, once)
-            , evt = prefix ? prefix + event : event;
+    for (i = 0; i < length; i++) {
+      if (listeners[i].once) { this.removeListener(event, listeners[i].fn, undefined, true); }
 
-        if (!emitter._events[evt]) { emitter._events[evt] = listener, emitter._eventsCount++; }
-        else if (!emitter._events[evt].fn) { emitter._events[evt].push(listener); }
-        else { emitter._events[evt] = [emitter._events[evt], listener]; }
+      switch (len) {
+        case 1: listeners[i].fn.call(listeners[i].context); break;
+        case 2: listeners[i].fn.call(listeners[i].context, a1); break;
+        case 3: listeners[i].fn.call(listeners[i].context, a1, a2); break;
+        case 4: listeners[i].fn.call(listeners[i].context, a1, a2, a3); break;
+        default:
+          if (!args) { for (j = 1, args = new Array(len -1); j < len; j++) {
+            args[j - 1] = arguments$1[j];
+          } }
 
-        return emitter;
+          listeners[i].fn.apply(listeners[i].context, args);
+      }
+    }
+  }
+
+  return true;
+};
+
+/**
+ * Add a listener for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} [context=this] The context to invoke the listener with.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.on = function on(event, fn, context) {
+  return addListener(this, event, fn, context, false);
+};
+
+/**
+ * Add a one-time listener for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} [context=this] The context to invoke the listener with.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.once = function once(event, fn, context) {
+  return addListener(this, event, fn, context, true);
+};
+
+/**
+ * Remove the listeners of a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn Only remove the listeners that match this function.
+ * @param {*} context Only remove the listeners that have this context.
+ * @param {Boolean} once Only remove one-time listeners.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.removeListener = function removeListener(event, fn, context, once) {
+  var evt = prefix ? prefix + event : event;
+
+  if (!this._events[evt]) { return this; }
+  if (!fn) {
+    clearEvent(this, evt);
+    return this;
+  }
+
+  var listeners = this._events[evt];
+
+  if (listeners.fn) {
+    if (
+      listeners.fn === fn &&
+      (!once || listeners.once) &&
+      (!context || listeners.context === context)
+    ) {
+      clearEvent(this, evt);
+    }
+  } else {
+    for (var i = 0, events = [], length = listeners.length; i < length; i++) {
+      if (
+        listeners[i].fn !== fn ||
+        (once && !listeners[i].once) ||
+        (context && listeners[i].context !== context)
+      ) {
+        events.push(listeners[i]);
+      }
     }
 
-    /**
-     * Clear event by name.
-     *
-     * @param {EventEmitter} emitter Reference to the `EventEmitter` instance.
-     * @param {(String|Symbol)} evt The Event name.
-     * @private
-     */
-    function clearEvent(emitter, evt) {
-        if (--emitter._eventsCount === 0) { emitter._events = new Events(); }
-        else { delete emitter._events[evt]; }
-    }
+    //
+    // Reset the array, or remove it completely if we have no more listeners.
+    //
+    if (events.length) { this._events[evt] = events.length === 1 ? events[0] : events; }
+    else { clearEvent(this, evt); }
+  }
 
-    /**
-     * Minimal `EventEmitter` interface that is molded against the Node.js
-     * `EventEmitter` interface.
-     *
-     * @constructor
-     * @public
-     */
-    function EventEmitter() {
-        this._events = new Events();
-        this._eventsCount = 0;
-    }
+  return this;
+};
 
-    /**
-     * Return an array listing the events for which the emitter has registered
-     * listeners.
-     *
-     * @returns {Array}
-     * @public
-     */
-    EventEmitter.prototype.eventNames = function eventNames() {
-        var names = []
-            , events
-            , name;
+/**
+ * Remove all listeners, or those of the specified event.
+ *
+ * @param {(String|Symbol)} [event] The event name.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.removeAllListeners = function removeAllListeners(event) {
+  var evt;
 
-        if (this._eventsCount === 0) { return names; }
+  if (event) {
+    evt = prefix ? prefix + event : event;
+    if (this._events[evt]) { clearEvent(this, evt); }
+  } else {
+    this._events = new Events();
+    this._eventsCount = 0;
+  }
 
-        for (name in (events = this._events)) {
-            if (has.call(events, name)) { names.push(prefix ? name.slice(1) : name); }
-        }
-
-        if (Object.getOwnPropertySymbols) {
-            return names.concat(Object.getOwnPropertySymbols(events));
-        }
-
-        return names;
-    };
-
-    /**
-     * Return the listeners registered for a given event.
-     *
-     * @param {(String|Symbol)} event The event name.
-     * @returns {Array} The registered listeners.
-     * @public
-     */
-    EventEmitter.prototype.listeners = function listeners(event) {
-        var evt = prefix ? prefix + event : event
-            , handlers = this._events[evt];
-
-        if (!handlers) { return []; }
-        if (handlers.fn) { return [handlers.fn]; }
-
-        for (var i = 0, l = handlers.length, ee = new Array(l); i < l; i++) {
-            ee[i] = handlers[i].fn;
-        }
-
-        return ee;
-    };
-
-    /**
-     * Return the number of listeners listening to a given event.
-     *
-     * @param {(String|Symbol)} event The event name.
-     * @returns {Number} The number of listeners.
-     * @public
-     */
-    EventEmitter.prototype.listenerCount = function listenerCount(event) {
-        var evt = prefix ? prefix + event : event
-            , listeners = this._events[evt];
-
-        if (!listeners) { return 0; }
-        if (listeners.fn) { return 1; }
-        return listeners.length;
-    };
-
-    /**
-     * Calls each of the listeners registered for a given event.
-     *
-     * @param {(String|Symbol)} event The event name.
-     * @returns {Boolean} `true` if the event had listeners, else `false`.
-     * @public
-     */
-    EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
-        var arguments$1 = arguments;
-
-        var evt = prefix ? prefix + event : event;
-
-        if (!this._events[evt]) { return false; }
-
-        var listeners = this._events[evt]
-            , len = arguments.length
-            , args
-            , i;
-
-        if (listeners.fn) {
-            if (listeners.once) { this.removeListener(event, listeners.fn, undefined, true); }
-
-            switch (len) {
-                case 1: return listeners.fn.call(listeners.context), true;
-                case 2: return listeners.fn.call(listeners.context, a1), true;
-                case 3: return listeners.fn.call(listeners.context, a1, a2), true;
-                case 4: return listeners.fn.call(listeners.context, a1, a2, a3), true;
-                case 5: return listeners.fn.call(listeners.context, a1, a2, a3, a4), true;
-                case 6: return listeners.fn.call(listeners.context, a1, a2, a3, a4, a5), true;
-            }
-
-            for (i = 1, args = new Array(len -1); i < len; i++) {
-                args[i - 1] = arguments$1[i];
-            }
-
-            listeners.fn.apply(listeners.context, args);
-        } else {
-            var length = listeners.length
-                , j;
-
-            for (i = 0; i < length; i++) {
-                if (listeners[i].once) { this.removeListener(event, listeners[i].fn, undefined, true); }
-
-                switch (len) {
-                    case 1: listeners[i].fn.call(listeners[i].context); break;
-                    case 2: listeners[i].fn.call(listeners[i].context, a1); break;
-                    case 3: listeners[i].fn.call(listeners[i].context, a1, a2); break;
-                    case 4: listeners[i].fn.call(listeners[i].context, a1, a2, a3); break;
-                    default:
-                        if (!args) { for (j = 1, args = new Array(len -1); j < len; j++) {
-                            args[j - 1] = arguments$1[j];
-                        } }
-
-                        listeners[i].fn.apply(listeners[i].context, args);
-                }
-            }
-        }
-
-        return true;
-    };
-
-    /**
-     * Add a listener for a given event.
-     *
-     * @param {(String|Symbol)} event The event name.
-     * @param {Function} fn The listener function.
-     * @param {*} [context=this] The context to invoke the listener with.
-     * @returns {EventEmitter} `this`.
-     * @public
-     */
-    EventEmitter.prototype.on = function on(event, fn, context) {
-        return addListener(this, event, fn, context, false);
-    };
-
-    /**
-     * Add a one-time listener for a given event.
-     *
-     * @param {(String|Symbol)} event The event name.
-     * @param {Function} fn The listener function.
-     * @param {*} [context=this] The context to invoke the listener with.
-     * @returns {EventEmitter} `this`.
-     * @public
-     */
-    EventEmitter.prototype.once = function once(event, fn, context) {
-        return addListener(this, event, fn, context, true);
-    };
-
-    /**
-     * Remove the listeners of a given event.
-     *
-     * @param {(String|Symbol)} event The event name.
-     * @param {Function} fn Only remove the listeners that match this function.
-     * @param {*} context Only remove the listeners that have this context.
-     * @param {Boolean} once Only remove one-time listeners.
-     * @returns {EventEmitter} `this`.
-     * @public
-     */
-    EventEmitter.prototype.removeListener = function removeListener(event, fn, context, once) {
-        var evt = prefix ? prefix + event : event;
-
-        if (!this._events[evt]) { return this; }
-        if (!fn) {
-            clearEvent(this, evt);
-            return this;
-        }
-
-        var listeners = this._events[evt];
-
-        if (listeners.fn) {
-            if (
-                listeners.fn === fn &&
-                (!once || listeners.once) &&
-                (!context || listeners.context === context)
-            ) {
-                clearEvent(this, evt);
-            }
-        } else {
-            for (var i = 0, events = [], length = listeners.length; i < length; i++) {
-                if (
-                    listeners[i].fn !== fn ||
-                    (once && !listeners[i].once) ||
-                    (context && listeners[i].context !== context)
-                ) {
-                    events.push(listeners[i]);
-                }
-            }
-
-            //
-            // Reset the array, or remove it completely if we have no more listeners.
-            //
-            if (events.length) { this._events[evt] = events.length === 1 ? events[0] : events; }
-            else { clearEvent(this, evt); }
-        }
-
-        return this;
-    };
-
-    /**
-     * Remove all listeners, or those of the specified event.
-     *
-     * @param {(String|Symbol)} [event] The event name.
-     * @returns {EventEmitter} `this`.
-     * @public
-     */
-    EventEmitter.prototype.removeAllListeners = function removeAllListeners(event) {
-        var evt;
-
-        if (event) {
-            evt = prefix ? prefix + event : event;
-            if (this._events[evt]) { clearEvent(this, evt); }
-        } else {
-            this._events = new Events();
-            this._eventsCount = 0;
-        }
-
-        return this;
-    };
+  return this;
+};
 
 //
 // Alias methods names because people roll like that.
 //
-    EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
-    EventEmitter.prototype.addListener = EventEmitter.prototype.on;
+EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
+EventEmitter.prototype.addListener = EventEmitter.prototype.on;
 
 //
 // Expose the prefix.
 //
-    EventEmitter.prefixed = prefix;
+EventEmitter.prefixed = prefix;
 
 //
 // Allow `EventEmitter` to be imported as module namespace.
 //
-    EventEmitter.EventEmitter = EventEmitter;
+EventEmitter.EventEmitter = EventEmitter;
 
 //
 // Expose the module.
 //
-    if ('undefined' !== 'object') {
-        module.exports = EventEmitter;
-    }
+if ('undefined' !== 'object') {
+  module.exports = EventEmitter;
+}
 });
 
 'use strict';
@@ -1441,12 +1441,12 @@ function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
             if (!pass) {
                 earcutLinked(filterPoints(ear), triangles, dim, minX, minY, invSize, 1);
 
-                // if this didn't work, try curing all small self-intersections locally
+            // if this didn't work, try curing all small self-intersections locally
             } else if (pass === 1) {
                 ear = cureLocalIntersections(filterPoints(ear), triangles, dim);
                 earcutLinked(ear, triangles, dim, minX, minY, invSize, 2);
 
-                // as a last resort, try splitting the remaining polygon into two
+            // as a last resort, try splitting the remaining polygon into two
             } else if (pass === 2) {
                 splitEarcut(ear, triangles, dim, minX, minY, invSize);
             }
@@ -1662,7 +1662,7 @@ function findHoleBridge(hole, outerNode) {
 
     do {
         if (hx >= p.x && p.x >= mx && hx !== p.x &&
-            pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
+                pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
 
             tan = Math.abs(hy - p.y) / (hx - p.x); // tangential
 
@@ -1787,14 +1787,14 @@ function getLeftmost(start) {
 // check if a point lies within a convex triangle
 function pointInTriangle(ax, ay, bx, by, cx, cy, px, py) {
     return (cx - px) * (ay - py) - (ax - px) * (cy - py) >= 0 &&
-        (ax - px) * (by - py) - (bx - px) * (ay - py) >= 0 &&
-        (bx - px) * (cy - py) - (cx - px) * (by - py) >= 0;
+           (ax - px) * (by - py) - (bx - px) * (ay - py) >= 0 &&
+           (bx - px) * (cy - py) - (cx - px) * (by - py) >= 0;
 }
 
 // check if a diagonal between two polygon nodes is valid (lies in polygon interior)
 function isValidDiagonal(a, b) {
     return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) && // dones't intersect other edges
-        (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
+           (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
             (area(a.prev, a, b.prev) || area(a, b.prev, b)) || // does not create opposite-facing sectors
             equals(a, b) && area(a.prev, a, a.next) > 0 && area(b.prev, b, b.next) > 0); // special zero-length case
 }
@@ -1840,7 +1840,7 @@ function intersectsPolygon(a, b) {
     var p = a;
     do {
         if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i &&
-            intersects(p, p.next, a, b)) { return true; }
+                intersects(p, p.next, a, b)) { return true; }
         p = p.next;
     } while (p !== a);
 
@@ -1862,8 +1862,8 @@ function middleInside(a, b) {
         py = (a.y + b.y) / 2;
     do {
         if (((p.y > py) !== (p.next.y > py)) && p.next.y !== p.y &&
-            (px < (p.next.x - p.x) * (py - p.y) / (p.next.y - p.y) + p.x))
-        { inside = !inside; }
+                (px < (p.next.x - p.x) * (py - p.y) / (p.next.y - p.y) + p.x))
+            { inside = !inside; }
         p = p.next;
     } while (p !== a);
 
@@ -1999,553 +1999,553 @@ earcut.flatten = function (data) {
 earcut_1.default = _default;
 
 var punycode = createCommonjsModule(function (module, exports) {
-    /*! https://mths.be/punycode v1.3.2 by @mathias */
-    ;(function(root) {
+/*! https://mths.be/punycode v1.3.2 by @mathias */
+;(function(root) {
 
-        /** Detect free variables */
-        var freeExports = 'object' == 'object' && exports &&
-            !exports.nodeType && exports;
-        var freeModule = 'object' == 'object' && module &&
-            !module.nodeType && module;
-        var freeGlobal = typeof commonjsGlobal == 'object' && commonjsGlobal;
-        if (
-            freeGlobal.global === freeGlobal ||
-            freeGlobal.window === freeGlobal ||
-            freeGlobal.self === freeGlobal
-        ) {
-            root = freeGlobal;
-        }
+	/** Detect free variables */
+	var freeExports = 'object' == 'object' && exports &&
+		!exports.nodeType && exports;
+	var freeModule = 'object' == 'object' && module &&
+		!module.nodeType && module;
+	var freeGlobal = typeof commonjsGlobal == 'object' && commonjsGlobal;
+	if (
+		freeGlobal.global === freeGlobal ||
+		freeGlobal.window === freeGlobal ||
+		freeGlobal.self === freeGlobal
+	) {
+		root = freeGlobal;
+	}
 
-        /**
-         * The `punycode` object.
-         * @name punycode
-         * @type Object
-         */
-        var punycode,
+	/**
+	 * The `punycode` object.
+	 * @name punycode
+	 * @type Object
+	 */
+	var punycode,
 
-            /** Highest positive signed 32-bit float value */
-            maxInt = 2147483647, // aka. 0x7FFFFFFF or 2^31-1
+	/** Highest positive signed 32-bit float value */
+	maxInt = 2147483647, // aka. 0x7FFFFFFF or 2^31-1
 
-            /** Bootstring parameters */
-            base = 36,
-            tMin = 1,
-            tMax = 26,
-            skew = 38,
-            damp = 700,
-            initialBias = 72,
-            initialN = 128, // 0x80
-            delimiter = '-', // '\x2D'
+	/** Bootstring parameters */
+	base = 36,
+	tMin = 1,
+	tMax = 26,
+	skew = 38,
+	damp = 700,
+	initialBias = 72,
+	initialN = 128, // 0x80
+	delimiter = '-', // '\x2D'
 
-            /** Regular expressions */
-            regexPunycode = /^xn--/,
-            regexNonASCII = /[^\x20-\x7E]/, // unprintable ASCII chars + non-ASCII chars
-            regexSeparators = /[\x2E\u3002\uFF0E\uFF61]/g, // RFC 3490 separators
+	/** Regular expressions */
+	regexPunycode = /^xn--/,
+	regexNonASCII = /[^\x20-\x7E]/, // unprintable ASCII chars + non-ASCII chars
+	regexSeparators = /[\x2E\u3002\uFF0E\uFF61]/g, // RFC 3490 separators
 
-            /** Error messages */
-            errors = {
-                'overflow': 'Overflow: input needs wider integers to process',
-                'not-basic': 'Illegal input >= 0x80 (not a basic code point)',
-                'invalid-input': 'Invalid input'
-            },
+	/** Error messages */
+	errors = {
+		'overflow': 'Overflow: input needs wider integers to process',
+		'not-basic': 'Illegal input >= 0x80 (not a basic code point)',
+		'invalid-input': 'Invalid input'
+	},
 
-            /** Convenience shortcuts */
-            baseMinusTMin = base - tMin,
-            floor = Math.floor,
-            stringFromCharCode = String.fromCharCode,
+	/** Convenience shortcuts */
+	baseMinusTMin = base - tMin,
+	floor = Math.floor,
+	stringFromCharCode = String.fromCharCode,
 
-            /** Temporary variable */
-            key;
+	/** Temporary variable */
+	key;
 
-        /*--------------------------------------------------------------------------*/
+	/*--------------------------------------------------------------------------*/
 
-        /**
-         * A generic error utility function.
-         * @private
-         * @param {String} type The error type.
-         * @returns {Error} Throws a `RangeError` with the applicable error message.
-         */
-        function error(type) {
-            throw RangeError(errors[type]);
-        }
+	/**
+	 * A generic error utility function.
+	 * @private
+	 * @param {String} type The error type.
+	 * @returns {Error} Throws a `RangeError` with the applicable error message.
+	 */
+	function error(type) {
+		throw RangeError(errors[type]);
+	}
 
-        /**
-         * A generic `Array#map` utility function.
-         * @private
-         * @param {Array} array The array to iterate over.
-         * @param {Function} callback The function that gets called for every array
-         * item.
-         * @returns {Array} A new array of values returned by the callback function.
-         */
-        function map(array, fn) {
-            var length = array.length;
-            var result = [];
-            while (length--) {
-                result[length] = fn(array[length]);
-            }
-            return result;
-        }
+	/**
+	 * A generic `Array#map` utility function.
+	 * @private
+	 * @param {Array} array The array to iterate over.
+	 * @param {Function} callback The function that gets called for every array
+	 * item.
+	 * @returns {Array} A new array of values returned by the callback function.
+	 */
+	function map(array, fn) {
+		var length = array.length;
+		var result = [];
+		while (length--) {
+			result[length] = fn(array[length]);
+		}
+		return result;
+	}
 
-        /**
-         * A simple `Array#map`-like wrapper to work with domain name strings or email
-         * addresses.
-         * @private
-         * @param {String} domain The domain name or email address.
-         * @param {Function} callback The function that gets called for every
-         * character.
-         * @returns {Array} A new string of characters returned by the callback
-         * function.
-         */
-        function mapDomain(string, fn) {
-            var parts = string.split('@');
-            var result = '';
-            if (parts.length > 1) {
-                // In email addresses, only the domain name should be punycoded. Leave
-                // the local part (i.e. everything up to `@`) intact.
-                result = parts[0] + '@';
-                string = parts[1];
-            }
-            // Avoid `split(regex)` for IE8 compatibility. See #17.
-            string = string.replace(regexSeparators, '\x2E');
-            var labels = string.split('.');
-            var encoded = map(labels, fn).join('.');
-            return result + encoded;
-        }
+	/**
+	 * A simple `Array#map`-like wrapper to work with domain name strings or email
+	 * addresses.
+	 * @private
+	 * @param {String} domain The domain name or email address.
+	 * @param {Function} callback The function that gets called for every
+	 * character.
+	 * @returns {Array} A new string of characters returned by the callback
+	 * function.
+	 */
+	function mapDomain(string, fn) {
+		var parts = string.split('@');
+		var result = '';
+		if (parts.length > 1) {
+			// In email addresses, only the domain name should be punycoded. Leave
+			// the local part (i.e. everything up to `@`) intact.
+			result = parts[0] + '@';
+			string = parts[1];
+		}
+		// Avoid `split(regex)` for IE8 compatibility. See #17.
+		string = string.replace(regexSeparators, '\x2E');
+		var labels = string.split('.');
+		var encoded = map(labels, fn).join('.');
+		return result + encoded;
+	}
 
-        /**
-         * Creates an array containing the numeric code points of each Unicode
-         * character in the string. While JavaScript uses UCS-2 internally,
-         * this function will convert a pair of surrogate halves (each of which
-         * UCS-2 exposes as separate characters) into a single code point,
-         * matching UTF-16.
-         * @see `punycode.ucs2.encode`
-         * @see <https://mathiasbynens.be/notes/javascript-encoding>
-         * @memberOf punycode.ucs2
-         * @name decode
-         * @param {String} string The Unicode input string (UCS-2).
-         * @returns {Array} The new array of code points.
-         */
-        function ucs2decode(string) {
-            var output = [],
-                counter = 0,
-                length = string.length,
-                value,
-                extra;
-            while (counter < length) {
-                value = string.charCodeAt(counter++);
-                if (value >= 0xD800 && value <= 0xDBFF && counter < length) {
-                    // high surrogate, and there is a next character
-                    extra = string.charCodeAt(counter++);
-                    if ((extra & 0xFC00) == 0xDC00) { // low surrogate
-                        output.push(((value & 0x3FF) << 10) + (extra & 0x3FF) + 0x10000);
-                    } else {
-                        // unmatched surrogate; only append this code unit, in case the next
-                        // code unit is the high surrogate of a surrogate pair
-                        output.push(value);
-                        counter--;
-                    }
-                } else {
-                    output.push(value);
-                }
-            }
-            return output;
-        }
+	/**
+	 * Creates an array containing the numeric code points of each Unicode
+	 * character in the string. While JavaScript uses UCS-2 internally,
+	 * this function will convert a pair of surrogate halves (each of which
+	 * UCS-2 exposes as separate characters) into a single code point,
+	 * matching UTF-16.
+	 * @see `punycode.ucs2.encode`
+	 * @see <https://mathiasbynens.be/notes/javascript-encoding>
+	 * @memberOf punycode.ucs2
+	 * @name decode
+	 * @param {String} string The Unicode input string (UCS-2).
+	 * @returns {Array} The new array of code points.
+	 */
+	function ucs2decode(string) {
+		var output = [],
+		    counter = 0,
+		    length = string.length,
+		    value,
+		    extra;
+		while (counter < length) {
+			value = string.charCodeAt(counter++);
+			if (value >= 0xD800 && value <= 0xDBFF && counter < length) {
+				// high surrogate, and there is a next character
+				extra = string.charCodeAt(counter++);
+				if ((extra & 0xFC00) == 0xDC00) { // low surrogate
+					output.push(((value & 0x3FF) << 10) + (extra & 0x3FF) + 0x10000);
+				} else {
+					// unmatched surrogate; only append this code unit, in case the next
+					// code unit is the high surrogate of a surrogate pair
+					output.push(value);
+					counter--;
+				}
+			} else {
+				output.push(value);
+			}
+		}
+		return output;
+	}
 
-        /**
-         * Creates a string based on an array of numeric code points.
-         * @see `punycode.ucs2.decode`
-         * @memberOf punycode.ucs2
-         * @name encode
-         * @param {Array} codePoints The array of numeric code points.
-         * @returns {String} The new Unicode string (UCS-2).
-         */
-        function ucs2encode(array) {
-            return map(array, function(value) {
-                var output = '';
-                if (value > 0xFFFF) {
-                    value -= 0x10000;
-                    output += stringFromCharCode(value >>> 10 & 0x3FF | 0xD800);
-                    value = 0xDC00 | value & 0x3FF;
-                }
-                output += stringFromCharCode(value);
-                return output;
-            }).join('');
-        }
+	/**
+	 * Creates a string based on an array of numeric code points.
+	 * @see `punycode.ucs2.decode`
+	 * @memberOf punycode.ucs2
+	 * @name encode
+	 * @param {Array} codePoints The array of numeric code points.
+	 * @returns {String} The new Unicode string (UCS-2).
+	 */
+	function ucs2encode(array) {
+		return map(array, function(value) {
+			var output = '';
+			if (value > 0xFFFF) {
+				value -= 0x10000;
+				output += stringFromCharCode(value >>> 10 & 0x3FF | 0xD800);
+				value = 0xDC00 | value & 0x3FF;
+			}
+			output += stringFromCharCode(value);
+			return output;
+		}).join('');
+	}
 
-        /**
-         * Converts a basic code point into a digit/integer.
-         * @see `digitToBasic()`
-         * @private
-         * @param {Number} codePoint The basic numeric code point value.
-         * @returns {Number} The numeric value of a basic code point (for use in
-         * representing integers) in the range `0` to `base - 1`, or `base` if
-         * the code point does not represent a value.
-         */
-        function basicToDigit(codePoint) {
-            if (codePoint - 48 < 10) {
-                return codePoint - 22;
-            }
-            if (codePoint - 65 < 26) {
-                return codePoint - 65;
-            }
-            if (codePoint - 97 < 26) {
-                return codePoint - 97;
-            }
-            return base;
-        }
+	/**
+	 * Converts a basic code point into a digit/integer.
+	 * @see `digitToBasic()`
+	 * @private
+	 * @param {Number} codePoint The basic numeric code point value.
+	 * @returns {Number} The numeric value of a basic code point (for use in
+	 * representing integers) in the range `0` to `base - 1`, or `base` if
+	 * the code point does not represent a value.
+	 */
+	function basicToDigit(codePoint) {
+		if (codePoint - 48 < 10) {
+			return codePoint - 22;
+		}
+		if (codePoint - 65 < 26) {
+			return codePoint - 65;
+		}
+		if (codePoint - 97 < 26) {
+			return codePoint - 97;
+		}
+		return base;
+	}
 
-        /**
-         * Converts a digit/integer into a basic code point.
-         * @see `basicToDigit()`
-         * @private
-         * @param {Number} digit The numeric value of a basic code point.
-         * @returns {Number} The basic code point whose value (when used for
-         * representing integers) is `digit`, which needs to be in the range
-         * `0` to `base - 1`. If `flag` is non-zero, the uppercase form is
-         * used; else, the lowercase form is used. The behavior is undefined
-         * if `flag` is non-zero and `digit` has no uppercase form.
-         */
-        function digitToBasic(digit, flag) {
-            //  0..25 map to ASCII a..z or A..Z
-            // 26..35 map to ASCII 0..9
-            return digit + 22 + 75 * (digit < 26) - ((flag != 0) << 5);
-        }
+	/**
+	 * Converts a digit/integer into a basic code point.
+	 * @see `basicToDigit()`
+	 * @private
+	 * @param {Number} digit The numeric value of a basic code point.
+	 * @returns {Number} The basic code point whose value (when used for
+	 * representing integers) is `digit`, which needs to be in the range
+	 * `0` to `base - 1`. If `flag` is non-zero, the uppercase form is
+	 * used; else, the lowercase form is used. The behavior is undefined
+	 * if `flag` is non-zero and `digit` has no uppercase form.
+	 */
+	function digitToBasic(digit, flag) {
+		//  0..25 map to ASCII a..z or A..Z
+		// 26..35 map to ASCII 0..9
+		return digit + 22 + 75 * (digit < 26) - ((flag != 0) << 5);
+	}
 
-        /**
-         * Bias adaptation function as per section 3.4 of RFC 3492.
-         * http://tools.ietf.org/html/rfc3492#section-3.4
-         * @private
-         */
-        function adapt(delta, numPoints, firstTime) {
-            var k = 0;
-            delta = firstTime ? floor(delta / damp) : delta >> 1;
-            delta += floor(delta / numPoints);
-            for (/* no initialization */; delta > baseMinusTMin * tMax >> 1; k += base) {
-                delta = floor(delta / baseMinusTMin);
-            }
-            return floor(k + (baseMinusTMin + 1) * delta / (delta + skew));
-        }
+	/**
+	 * Bias adaptation function as per section 3.4 of RFC 3492.
+	 * http://tools.ietf.org/html/rfc3492#section-3.4
+	 * @private
+	 */
+	function adapt(delta, numPoints, firstTime) {
+		var k = 0;
+		delta = firstTime ? floor(delta / damp) : delta >> 1;
+		delta += floor(delta / numPoints);
+		for (/* no initialization */; delta > baseMinusTMin * tMax >> 1; k += base) {
+			delta = floor(delta / baseMinusTMin);
+		}
+		return floor(k + (baseMinusTMin + 1) * delta / (delta + skew));
+	}
 
-        /**
-         * Converts a Punycode string of ASCII-only symbols to a string of Unicode
-         * symbols.
-         * @memberOf punycode
-         * @param {String} input The Punycode string of ASCII-only symbols.
-         * @returns {String} The resulting string of Unicode symbols.
-         */
-        function decode(input) {
-            // Don't use UCS-2
-            var output = [],
-                inputLength = input.length,
-                out,
-                i = 0,
-                n = initialN,
-                bias = initialBias,
-                basic,
-                j,
-                index,
-                oldi,
-                w,
-                k,
-                digit,
-                t,
-                /** Cached calculation results */
-                baseMinusT;
+	/**
+	 * Converts a Punycode string of ASCII-only symbols to a string of Unicode
+	 * symbols.
+	 * @memberOf punycode
+	 * @param {String} input The Punycode string of ASCII-only symbols.
+	 * @returns {String} The resulting string of Unicode symbols.
+	 */
+	function decode(input) {
+		// Don't use UCS-2
+		var output = [],
+		    inputLength = input.length,
+		    out,
+		    i = 0,
+		    n = initialN,
+		    bias = initialBias,
+		    basic,
+		    j,
+		    index,
+		    oldi,
+		    w,
+		    k,
+		    digit,
+		    t,
+		    /** Cached calculation results */
+		    baseMinusT;
 
-            // Handle the basic code points: let `basic` be the number of input code
-            // points before the last delimiter, or `0` if there is none, then copy
-            // the first basic code points to the output.
+		// Handle the basic code points: let `basic` be the number of input code
+		// points before the last delimiter, or `0` if there is none, then copy
+		// the first basic code points to the output.
 
-            basic = input.lastIndexOf(delimiter);
-            if (basic < 0) {
-                basic = 0;
-            }
+		basic = input.lastIndexOf(delimiter);
+		if (basic < 0) {
+			basic = 0;
+		}
 
-            for (j = 0; j < basic; ++j) {
-                // if it's not a basic code point
-                if (input.charCodeAt(j) >= 0x80) {
-                    error('not-basic');
-                }
-                output.push(input.charCodeAt(j));
-            }
+		for (j = 0; j < basic; ++j) {
+			// if it's not a basic code point
+			if (input.charCodeAt(j) >= 0x80) {
+				error('not-basic');
+			}
+			output.push(input.charCodeAt(j));
+		}
 
-            // Main decoding loop: start just after the last delimiter if any basic code
-            // points were copied; start at the beginning otherwise.
+		// Main decoding loop: start just after the last delimiter if any basic code
+		// points were copied; start at the beginning otherwise.
 
-            for (index = basic > 0 ? basic + 1 : 0; index < inputLength; /* no final expression */) {
+		for (index = basic > 0 ? basic + 1 : 0; index < inputLength; /* no final expression */) {
 
-                // `index` is the index of the next character to be consumed.
-                // Decode a generalized variable-length integer into `delta`,
-                // which gets added to `i`. The overflow checking is easier
-                // if we increase `i` as we go, then subtract off its starting
-                // value at the end to obtain `delta`.
-                for (oldi = i, w = 1, k = base; /* no condition */; k += base) {
+			// `index` is the index of the next character to be consumed.
+			// Decode a generalized variable-length integer into `delta`,
+			// which gets added to `i`. The overflow checking is easier
+			// if we increase `i` as we go, then subtract off its starting
+			// value at the end to obtain `delta`.
+			for (oldi = i, w = 1, k = base; /* no condition */; k += base) {
 
-                    if (index >= inputLength) {
-                        error('invalid-input');
-                    }
+				if (index >= inputLength) {
+					error('invalid-input');
+				}
 
-                    digit = basicToDigit(input.charCodeAt(index++));
+				digit = basicToDigit(input.charCodeAt(index++));
 
-                    if (digit >= base || digit > floor((maxInt - i) / w)) {
-                        error('overflow');
-                    }
+				if (digit >= base || digit > floor((maxInt - i) / w)) {
+					error('overflow');
+				}
 
-                    i += digit * w;
-                    t = k <= bias ? tMin : (k >= bias + tMax ? tMax : k - bias);
+				i += digit * w;
+				t = k <= bias ? tMin : (k >= bias + tMax ? tMax : k - bias);
 
-                    if (digit < t) {
-                        break;
-                    }
+				if (digit < t) {
+					break;
+				}
 
-                    baseMinusT = base - t;
-                    if (w > floor(maxInt / baseMinusT)) {
-                        error('overflow');
-                    }
+				baseMinusT = base - t;
+				if (w > floor(maxInt / baseMinusT)) {
+					error('overflow');
+				}
 
-                    w *= baseMinusT;
+				w *= baseMinusT;
 
-                }
+			}
 
-                out = output.length + 1;
-                bias = adapt(i - oldi, out, oldi == 0);
+			out = output.length + 1;
+			bias = adapt(i - oldi, out, oldi == 0);
 
-                // `i` was supposed to wrap around from `out` to `0`,
-                // incrementing `n` each time, so we'll fix that now:
-                if (floor(i / out) > maxInt - n) {
-                    error('overflow');
-                }
+			// `i` was supposed to wrap around from `out` to `0`,
+			// incrementing `n` each time, so we'll fix that now:
+			if (floor(i / out) > maxInt - n) {
+				error('overflow');
+			}
 
-                n += floor(i / out);
-                i %= out;
+			n += floor(i / out);
+			i %= out;
 
-                // Insert `n` at position `i` of the output
-                output.splice(i++, 0, n);
+			// Insert `n` at position `i` of the output
+			output.splice(i++, 0, n);
 
-            }
+		}
 
-            return ucs2encode(output);
-        }
+		return ucs2encode(output);
+	}
 
-        /**
-         * Converts a string of Unicode symbols (e.g. a domain name label) to a
-         * Punycode string of ASCII-only symbols.
-         * @memberOf punycode
-         * @param {String} input The string of Unicode symbols.
-         * @returns {String} The resulting Punycode string of ASCII-only symbols.
-         */
-        function encode(input) {
-            var n,
-                delta,
-                handledCPCount,
-                basicLength,
-                bias,
-                j,
-                m,
-                q,
-                k,
-                t,
-                currentValue,
-                output = [],
-                /** `inputLength` will hold the number of code points in `input`. */
-                inputLength,
-                /** Cached calculation results */
-                handledCPCountPlusOne,
-                baseMinusT,
-                qMinusT;
+	/**
+	 * Converts a string of Unicode symbols (e.g. a domain name label) to a
+	 * Punycode string of ASCII-only symbols.
+	 * @memberOf punycode
+	 * @param {String} input The string of Unicode symbols.
+	 * @returns {String} The resulting Punycode string of ASCII-only symbols.
+	 */
+	function encode(input) {
+		var n,
+		    delta,
+		    handledCPCount,
+		    basicLength,
+		    bias,
+		    j,
+		    m,
+		    q,
+		    k,
+		    t,
+		    currentValue,
+		    output = [],
+		    /** `inputLength` will hold the number of code points in `input`. */
+		    inputLength,
+		    /** Cached calculation results */
+		    handledCPCountPlusOne,
+		    baseMinusT,
+		    qMinusT;
 
-            // Convert the input in UCS-2 to Unicode
-            input = ucs2decode(input);
+		// Convert the input in UCS-2 to Unicode
+		input = ucs2decode(input);
 
-            // Cache the length
-            inputLength = input.length;
+		// Cache the length
+		inputLength = input.length;
 
-            // Initialize the state
-            n = initialN;
-            delta = 0;
-            bias = initialBias;
+		// Initialize the state
+		n = initialN;
+		delta = 0;
+		bias = initialBias;
 
-            // Handle the basic code points
-            for (j = 0; j < inputLength; ++j) {
-                currentValue = input[j];
-                if (currentValue < 0x80) {
-                    output.push(stringFromCharCode(currentValue));
-                }
-            }
+		// Handle the basic code points
+		for (j = 0; j < inputLength; ++j) {
+			currentValue = input[j];
+			if (currentValue < 0x80) {
+				output.push(stringFromCharCode(currentValue));
+			}
+		}
 
-            handledCPCount = basicLength = output.length;
+		handledCPCount = basicLength = output.length;
 
-            // `handledCPCount` is the number of code points that have been handled;
-            // `basicLength` is the number of basic code points.
+		// `handledCPCount` is the number of code points that have been handled;
+		// `basicLength` is the number of basic code points.
 
-            // Finish the basic string - if it is not empty - with a delimiter
-            if (basicLength) {
-                output.push(delimiter);
-            }
+		// Finish the basic string - if it is not empty - with a delimiter
+		if (basicLength) {
+			output.push(delimiter);
+		}
 
-            // Main encoding loop:
-            while (handledCPCount < inputLength) {
+		// Main encoding loop:
+		while (handledCPCount < inputLength) {
 
-                // All non-basic code points < n have been handled already. Find the next
-                // larger one:
-                for (m = maxInt, j = 0; j < inputLength; ++j) {
-                    currentValue = input[j];
-                    if (currentValue >= n && currentValue < m) {
-                        m = currentValue;
-                    }
-                }
+			// All non-basic code points < n have been handled already. Find the next
+			// larger one:
+			for (m = maxInt, j = 0; j < inputLength; ++j) {
+				currentValue = input[j];
+				if (currentValue >= n && currentValue < m) {
+					m = currentValue;
+				}
+			}
 
-                // Increase `delta` enough to advance the decoder's <n,i> state to <m,0>,
-                // but guard against overflow
-                handledCPCountPlusOne = handledCPCount + 1;
-                if (m - n > floor((maxInt - delta) / handledCPCountPlusOne)) {
-                    error('overflow');
-                }
+			// Increase `delta` enough to advance the decoder's <n,i> state to <m,0>,
+			// but guard against overflow
+			handledCPCountPlusOne = handledCPCount + 1;
+			if (m - n > floor((maxInt - delta) / handledCPCountPlusOne)) {
+				error('overflow');
+			}
 
-                delta += (m - n) * handledCPCountPlusOne;
-                n = m;
+			delta += (m - n) * handledCPCountPlusOne;
+			n = m;
 
-                for (j = 0; j < inputLength; ++j) {
-                    currentValue = input[j];
+			for (j = 0; j < inputLength; ++j) {
+				currentValue = input[j];
 
-                    if (currentValue < n && ++delta > maxInt) {
-                        error('overflow');
-                    }
+				if (currentValue < n && ++delta > maxInt) {
+					error('overflow');
+				}
 
-                    if (currentValue == n) {
-                        // Represent delta as a generalized variable-length integer
-                        for (q = delta, k = base; /* no condition */; k += base) {
-                            t = k <= bias ? tMin : (k >= bias + tMax ? tMax : k - bias);
-                            if (q < t) {
-                                break;
-                            }
-                            qMinusT = q - t;
-                            baseMinusT = base - t;
-                            output.push(
-                                stringFromCharCode(digitToBasic(t + qMinusT % baseMinusT, 0))
-                            );
-                            q = floor(qMinusT / baseMinusT);
-                        }
+				if (currentValue == n) {
+					// Represent delta as a generalized variable-length integer
+					for (q = delta, k = base; /* no condition */; k += base) {
+						t = k <= bias ? tMin : (k >= bias + tMax ? tMax : k - bias);
+						if (q < t) {
+							break;
+						}
+						qMinusT = q - t;
+						baseMinusT = base - t;
+						output.push(
+							stringFromCharCode(digitToBasic(t + qMinusT % baseMinusT, 0))
+						);
+						q = floor(qMinusT / baseMinusT);
+					}
 
-                        output.push(stringFromCharCode(digitToBasic(q, 0)));
-                        bias = adapt(delta, handledCPCountPlusOne, handledCPCount == basicLength);
-                        delta = 0;
-                        ++handledCPCount;
-                    }
-                }
+					output.push(stringFromCharCode(digitToBasic(q, 0)));
+					bias = adapt(delta, handledCPCountPlusOne, handledCPCount == basicLength);
+					delta = 0;
+					++handledCPCount;
+				}
+			}
 
-                ++delta;
-                ++n;
+			++delta;
+			++n;
 
-            }
-            return output.join('');
-        }
+		}
+		return output.join('');
+	}
 
-        /**
-         * Converts a Punycode string representing a domain name or an email address
-         * to Unicode. Only the Punycoded parts of the input will be converted, i.e.
-         * it doesn't matter if you call it on a string that has already been
-         * converted to Unicode.
-         * @memberOf punycode
-         * @param {String} input The Punycoded domain name or email address to
-         * convert to Unicode.
-         * @returns {String} The Unicode representation of the given Punycode
-         * string.
-         */
-        function toUnicode(input) {
-            return mapDomain(input, function(string) {
-                return regexPunycode.test(string)
-                    ? decode(string.slice(4).toLowerCase())
-                    : string;
-            });
-        }
+	/**
+	 * Converts a Punycode string representing a domain name or an email address
+	 * to Unicode. Only the Punycoded parts of the input will be converted, i.e.
+	 * it doesn't matter if you call it on a string that has already been
+	 * converted to Unicode.
+	 * @memberOf punycode
+	 * @param {String} input The Punycoded domain name or email address to
+	 * convert to Unicode.
+	 * @returns {String} The Unicode representation of the given Punycode
+	 * string.
+	 */
+	function toUnicode(input) {
+		return mapDomain(input, function(string) {
+			return regexPunycode.test(string)
+				? decode(string.slice(4).toLowerCase())
+				: string;
+		});
+	}
 
-        /**
-         * Converts a Unicode string representing a domain name or an email address to
-         * Punycode. Only the non-ASCII parts of the domain name will be converted,
-         * i.e. it doesn't matter if you call it with a domain that's already in
-         * ASCII.
-         * @memberOf punycode
-         * @param {String} input The domain name or email address to convert, as a
-         * Unicode string.
-         * @returns {String} The Punycode representation of the given domain name or
-         * email address.
-         */
-        function toASCII(input) {
-            return mapDomain(input, function(string) {
-                return regexNonASCII.test(string)
-                    ? 'xn--' + encode(string)
-                    : string;
-            });
-        }
+	/**
+	 * Converts a Unicode string representing a domain name or an email address to
+	 * Punycode. Only the non-ASCII parts of the domain name will be converted,
+	 * i.e. it doesn't matter if you call it with a domain that's already in
+	 * ASCII.
+	 * @memberOf punycode
+	 * @param {String} input The domain name or email address to convert, as a
+	 * Unicode string.
+	 * @returns {String} The Punycode representation of the given domain name or
+	 * email address.
+	 */
+	function toASCII(input) {
+		return mapDomain(input, function(string) {
+			return regexNonASCII.test(string)
+				? 'xn--' + encode(string)
+				: string;
+		});
+	}
 
-        /*--------------------------------------------------------------------------*/
+	/*--------------------------------------------------------------------------*/
 
-        /** Define the public API */
-        punycode = {
-            /**
-             * A string representing the current Punycode.js version number.
-             * @memberOf punycode
-             * @type String
-             */
-            'version': '1.3.2',
-            /**
-             * An object of methods to convert from JavaScript's internal character
-             * representation (UCS-2) to Unicode code points, and back.
-             * @see <https://mathiasbynens.be/notes/javascript-encoding>
-             * @memberOf punycode
-             * @type Object
-             */
-            'ucs2': {
-                'decode': ucs2decode,
-                'encode': ucs2encode
-            },
-            'decode': decode,
-            'encode': encode,
-            'toASCII': toASCII,
-            'toUnicode': toUnicode
-        };
+	/** Define the public API */
+	punycode = {
+		/**
+		 * A string representing the current Punycode.js version number.
+		 * @memberOf punycode
+		 * @type String
+		 */
+		'version': '1.3.2',
+		/**
+		 * An object of methods to convert from JavaScript's internal character
+		 * representation (UCS-2) to Unicode code points, and back.
+		 * @see <https://mathiasbynens.be/notes/javascript-encoding>
+		 * @memberOf punycode
+		 * @type Object
+		 */
+		'ucs2': {
+			'decode': ucs2decode,
+			'encode': ucs2encode
+		},
+		'decode': decode,
+		'encode': encode,
+		'toASCII': toASCII,
+		'toUnicode': toUnicode
+	};
 
-        /** Expose `punycode` */
-        // Some AMD build optimizers, like r.js, check for specific condition patterns
-        // like the following:
-        if (
-            typeof undefined == 'function' &&
-            typeof undefined.amd == 'object' &&
-            undefined.amd
-        ) {
-            undefined('punycode', function() {
-                return punycode;
-            });
-        } else if (freeExports && freeModule) {
-            if (module.exports == freeExports) { // in Node.js or RingoJS v0.8.0+
-                freeModule.exports = punycode;
-            } else { // in Narwhal or RingoJS v0.7.0-
-                for (key in punycode) {
-                    punycode.hasOwnProperty(key) && (freeExports[key] = punycode[key]);
-                }
-            }
-        } else { // in Rhino or a web browser
-            root.punycode = punycode;
-        }
+	/** Expose `punycode` */
+	// Some AMD build optimizers, like r.js, check for specific condition patterns
+	// like the following:
+	if (
+		typeof undefined == 'function' &&
+		typeof undefined.amd == 'object' &&
+		undefined.amd
+	) {
+		undefined('punycode', function() {
+			return punycode;
+		});
+	} else if (freeExports && freeModule) {
+		if (module.exports == freeExports) { // in Node.js or RingoJS v0.8.0+
+			freeModule.exports = punycode;
+		} else { // in Narwhal or RingoJS v0.7.0-
+			for (key in punycode) {
+				punycode.hasOwnProperty(key) && (freeExports[key] = punycode[key]);
+			}
+		}
+	} else { // in Rhino or a web browser
+		root.punycode = punycode;
+	}
 
-    }(commonjsGlobal));
+}(commonjsGlobal));
 });
 
 'use strict';
 
 var util = {
-    isString: function(arg) {
-        return typeof(arg) === 'string';
-    },
-    isObject: function(arg) {
-        return typeof(arg) === 'object' && arg !== null;
-    },
-    isNull: function(arg) {
-        return arg === null;
-    },
-    isNullOrUndefined: function(arg) {
-        return arg == null;
-    }
+  isString: function(arg) {
+    return typeof(arg) === 'string';
+  },
+  isObject: function(arg) {
+    return typeof(arg) === 'object' && arg !== null;
+  },
+  isNull: function(arg) {
+    return arg === null;
+  },
+  isNullOrUndefined: function(arg) {
+    return arg == null;
+  }
 };
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -2575,58 +2575,58 @@ var util = {
 // obj.hasOwnProperty(prop) will break.
 // See: https://github.com/joyent/node/issues/1707
 function hasOwnProperty$1(obj, prop) {
-    return Object.prototype.hasOwnProperty.call(obj, prop);
+  return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
 var decode = function(qs, sep, eq, options) {
-    sep = sep || '&';
-    eq = eq || '=';
-    var obj = {};
+  sep = sep || '&';
+  eq = eq || '=';
+  var obj = {};
 
-    if (typeof qs !== 'string' || qs.length === 0) {
-        return obj;
-    }
-
-    var regexp = /\+/g;
-    qs = qs.split(sep);
-
-    var maxKeys = 1000;
-    if (options && typeof options.maxKeys === 'number') {
-        maxKeys = options.maxKeys;
-    }
-
-    var len = qs.length;
-    // maxKeys <= 0 means that we should not limit keys count
-    if (maxKeys > 0 && len > maxKeys) {
-        len = maxKeys;
-    }
-
-    for (var i = 0; i < len; ++i) {
-        var x = qs[i].replace(regexp, '%20'),
-            idx = x.indexOf(eq),
-            kstr, vstr, k, v;
-
-        if (idx >= 0) {
-            kstr = x.substr(0, idx);
-            vstr = x.substr(idx + 1);
-        } else {
-            kstr = x;
-            vstr = '';
-        }
-
-        k = decodeURIComponent(kstr);
-        v = decodeURIComponent(vstr);
-
-        if (!hasOwnProperty$1(obj, k)) {
-            obj[k] = v;
-        } else if (Array.isArray(obj[k])) {
-            obj[k].push(v);
-        } else {
-            obj[k] = [obj[k], v];
-        }
-    }
-
+  if (typeof qs !== 'string' || qs.length === 0) {
     return obj;
+  }
+
+  var regexp = /\+/g;
+  qs = qs.split(sep);
+
+  var maxKeys = 1000;
+  if (options && typeof options.maxKeys === 'number') {
+    maxKeys = options.maxKeys;
+  }
+
+  var len = qs.length;
+  // maxKeys <= 0 means that we should not limit keys count
+  if (maxKeys > 0 && len > maxKeys) {
+    len = maxKeys;
+  }
+
+  for (var i = 0; i < len; ++i) {
+    var x = qs[i].replace(regexp, '%20'),
+        idx = x.indexOf(eq),
+        kstr, vstr, k, v;
+
+    if (idx >= 0) {
+      kstr = x.substr(0, idx);
+      vstr = x.substr(idx + 1);
+    } else {
+      kstr = x;
+      vstr = '';
+    }
+
+    k = decodeURIComponent(kstr);
+    v = decodeURIComponent(vstr);
+
+    if (!hasOwnProperty$1(obj, k)) {
+      obj[k] = v;
+    } else if (Array.isArray(obj[k])) {
+      obj[k].push(v);
+    } else {
+      obj[k] = [obj[k], v];
+    }
+  }
+
+  return obj;
 };
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -2653,52 +2653,52 @@ var decode = function(qs, sep, eq, options) {
 'use strict';
 
 var stringifyPrimitive = function(v) {
-    switch (typeof v) {
-        case 'string':
-            return v;
+  switch (typeof v) {
+    case 'string':
+      return v;
 
-        case 'boolean':
-            return v ? 'true' : 'false';
+    case 'boolean':
+      return v ? 'true' : 'false';
 
-        case 'number':
-            return isFinite(v) ? v : '';
+    case 'number':
+      return isFinite(v) ? v : '';
 
-        default:
-            return '';
-    }
+    default:
+      return '';
+  }
 };
 
 var encode = function(obj, sep, eq, name) {
-    sep = sep || '&';
-    eq = eq || '=';
-    if (obj === null) {
-        obj = undefined;
-    }
+  sep = sep || '&';
+  eq = eq || '=';
+  if (obj === null) {
+    obj = undefined;
+  }
 
-    if (typeof obj === 'object') {
-        return Object.keys(obj).map(function(k) {
-            var ks = encodeURIComponent(stringifyPrimitive(k)) + eq;
-            if (Array.isArray(obj[k])) {
-                return obj[k].map(function(v) {
-                    return ks + encodeURIComponent(stringifyPrimitive(v));
-                }).join(sep);
-            } else {
-                return ks + encodeURIComponent(stringifyPrimitive(obj[k]));
-            }
+  if (typeof obj === 'object') {
+    return Object.keys(obj).map(function(k) {
+      var ks = encodeURIComponent(stringifyPrimitive(k)) + eq;
+      if (Array.isArray(obj[k])) {
+        return obj[k].map(function(v) {
+          return ks + encodeURIComponent(stringifyPrimitive(v));
         }).join(sep);
+      } else {
+        return ks + encodeURIComponent(stringifyPrimitive(obj[k]));
+      }
+    }).join(sep);
 
-    }
+  }
 
-    if (!name) { return ''; }
-    return encodeURIComponent(stringifyPrimitive(name)) + eq +
-        encodeURIComponent(stringifyPrimitive(obj));
+  if (!name) { return ''; }
+  return encodeURIComponent(stringifyPrimitive(name)) + eq +
+         encodeURIComponent(stringifyPrimitive(obj));
 };
 
 var querystring = createCommonjsModule(function (module, exports) {
-    'use strict';
+'use strict';
 
-    exports.decode = exports.parse = decode;
-    exports.encode = exports.stringify = encode;
+exports.decode = exports.parse = decode;
+exports.encode = exports.stringify = encode;
 });
 
 // Copyright Joyent, Inc. and other Node contributors.
@@ -2735,18 +2735,18 @@ var format = urlFormat;
 var Url_1 = Url;
 
 function Url() {
-    this.protocol = null;
-    this.slashes = null;
-    this.auth = null;
-    this.host = null;
-    this.port = null;
-    this.hostname = null;
-    this.hash = null;
-    this.search = null;
-    this.query = null;
-    this.pathname = null;
-    this.path = null;
-    this.href = null;
+  this.protocol = null;
+  this.slashes = null;
+  this.auth = null;
+  this.host = null;
+  this.port = null;
+  this.hostname = null;
+  this.hash = null;
+  this.search = null;
+  this.query = null;
+  this.pathname = null;
+  this.path = null;
+  this.href = null;
 }
 
 // Reference: RFC 3986, RFC 1808, RFC 2396
@@ -2779,666 +2779,666 @@ var protocolPattern = /^([a-z0-9.+-]+:)/i,
     hostnamePartStart = /^([+a-z0-9A-Z_-]{0,63})(.*)$/,
     // protocols that can allow "unsafe" and "unwise" chars.
     unsafeProtocol = {
-        'javascript': true,
-        'javascript:': true
+      'javascript': true,
+      'javascript:': true
     },
     // protocols that never have a hostname.
     hostlessProtocol = {
-        'javascript': true,
-        'javascript:': true
+      'javascript': true,
+      'javascript:': true
     },
     // protocols that always contain a // bit.
     slashedProtocol = {
-        'http': true,
-        'https': true,
-        'ftp': true,
-        'gopher': true,
-        'file': true,
-        'http:': true,
-        'https:': true,
-        'ftp:': true,
-        'gopher:': true,
-        'file:': true
+      'http': true,
+      'https': true,
+      'ftp': true,
+      'gopher': true,
+      'file': true,
+      'http:': true,
+      'https:': true,
+      'ftp:': true,
+      'gopher:': true,
+      'file:': true
     };
 
 function urlParse(url, parseQueryString, slashesDenoteHost) {
-    if (url && util.isObject(url) && url instanceof Url) { return url; }
+  if (url && util.isObject(url) && url instanceof Url) { return url; }
 
-    var u = new Url;
-    u.parse(url, parseQueryString, slashesDenoteHost);
-    return u;
+  var u = new Url;
+  u.parse(url, parseQueryString, slashesDenoteHost);
+  return u;
 }
 
 Url.prototype.parse = function(url, parseQueryString, slashesDenoteHost) {
-    if (!util.isString(url)) {
-        throw new TypeError("Parameter 'url' must be a string, not " + typeof url);
-    }
+  if (!util.isString(url)) {
+    throw new TypeError("Parameter 'url' must be a string, not " + typeof url);
+  }
 
-    // Copy chrome, IE, opera backslash-handling behavior.
-    // Back slashes before the query string get converted to forward slashes
-    // See: https://code.google.com/p/chromium/issues/detail?id=25916
-    var queryIndex = url.indexOf('?'),
-        splitter =
-            (queryIndex !== -1 && queryIndex < url.indexOf('#')) ? '?' : '#',
-        uSplit = url.split(splitter),
-        slashRegex = /\\/g;
-    uSplit[0] = uSplit[0].replace(slashRegex, '/');
-    url = uSplit.join(splitter);
+  // Copy chrome, IE, opera backslash-handling behavior.
+  // Back slashes before the query string get converted to forward slashes
+  // See: https://code.google.com/p/chromium/issues/detail?id=25916
+  var queryIndex = url.indexOf('?'),
+      splitter =
+          (queryIndex !== -1 && queryIndex < url.indexOf('#')) ? '?' : '#',
+      uSplit = url.split(splitter),
+      slashRegex = /\\/g;
+  uSplit[0] = uSplit[0].replace(slashRegex, '/');
+  url = uSplit.join(splitter);
 
-    var rest = url;
+  var rest = url;
 
-    // trim before proceeding.
-    // This is to support parse stuff like "  http://foo.com  \n"
-    rest = rest.trim();
+  // trim before proceeding.
+  // This is to support parse stuff like "  http://foo.com  \n"
+  rest = rest.trim();
 
-    if (!slashesDenoteHost && url.split('#').length === 1) {
-        // Try fast path regexp
-        var simplePath = simplePathPattern.exec(rest);
-        if (simplePath) {
-            this.path = rest;
-            this.href = rest;
-            this.pathname = simplePath[1];
-            if (simplePath[2]) {
-                this.search = simplePath[2];
-                if (parseQueryString) {
-                    this.query = querystring.parse(this.search.substr(1));
-                } else {
-                    this.query = this.search.substr(1);
-                }
-            } else if (parseQueryString) {
-                this.search = '';
-                this.query = {};
-            }
-            return this;
-        }
-    }
-
-    var proto = protocolPattern.exec(rest);
-    if (proto) {
-        proto = proto[0];
-        var lowerProto = proto.toLowerCase();
-        this.protocol = lowerProto;
-        rest = rest.substr(proto.length);
-    }
-
-    // figure out if it's got a host
-    // user@server is *always* interpreted as a hostname, and url
-    // resolution will treat //foo/bar as host=foo,path=bar because that's
-    // how the browser resolves relative URLs.
-    if (slashesDenoteHost || proto || rest.match(/^\/\/[^@\/]+@[^@\/]+/)) {
-        var slashes = rest.substr(0, 2) === '//';
-        if (slashes && !(proto && hostlessProtocol[proto])) {
-            rest = rest.substr(2);
-            this.slashes = true;
-        }
-    }
-
-    if (!hostlessProtocol[proto] &&
-        (slashes || (proto && !slashedProtocol[proto]))) {
-
-        // there's a hostname.
-        // the first instance of /, ?, ;, or # ends the host.
-        //
-        // If there is an @ in the hostname, then non-host chars *are* allowed
-        // to the left of the last @ sign, unless some host-ending character
-        // comes *before* the @-sign.
-        // URLs are obnoxious.
-        //
-        // ex:
-        // http://a@b@c/ => user:a@b host:c
-        // http://a@b?@c => user:a host:c path:/?@c
-
-        // v0.12 TODO(isaacs): This is not quite how Chrome does things.
-        // Review our test case against browsers more comprehensively.
-
-        // find the first instance of any hostEndingChars
-        var hostEnd = -1;
-        for (var i = 0; i < hostEndingChars.length; i++) {
-            var hec = rest.indexOf(hostEndingChars[i]);
-            if (hec !== -1 && (hostEnd === -1 || hec < hostEnd))
-            { hostEnd = hec; }
-        }
-
-        // at this point, either we have an explicit point where the
-        // auth portion cannot go past, or the last @ char is the decider.
-        var auth, atSign;
-        if (hostEnd === -1) {
-            // atSign can be anywhere.
-            atSign = rest.lastIndexOf('@');
-        } else {
-            // atSign must be in auth portion.
-            // http://a@b/c@d => host:b auth:a path:/c@d
-            atSign = rest.lastIndexOf('@', hostEnd);
-        }
-
-        // Now we have a portion which is definitely the auth.
-        // Pull that off.
-        if (atSign !== -1) {
-            auth = rest.slice(0, atSign);
-            rest = rest.slice(atSign + 1);
-            this.auth = decodeURIComponent(auth);
-        }
-
-        // the host is the remaining to the left of the first non-host char
-        hostEnd = -1;
-        for (var i = 0; i < nonHostChars.length; i++) {
-            var hec = rest.indexOf(nonHostChars[i]);
-            if (hec !== -1 && (hostEnd === -1 || hec < hostEnd))
-            { hostEnd = hec; }
-        }
-        // if we still have not hit it, then the entire thing is a host.
-        if (hostEnd === -1)
-        { hostEnd = rest.length; }
-
-        this.host = rest.slice(0, hostEnd);
-        rest = rest.slice(hostEnd);
-
-        // pull out port.
-        this.parseHost();
-
-        // we've indicated that there is a hostname,
-        // so even if it's empty, it has to be present.
-        this.hostname = this.hostname || '';
-
-        // if hostname begins with [ and ends with ]
-        // assume that it's an IPv6 address.
-        var ipv6Hostname = this.hostname[0] === '[' &&
-            this.hostname[this.hostname.length - 1] === ']';
-
-        // validate a little.
-        if (!ipv6Hostname) {
-            var hostparts = this.hostname.split(/\./);
-            for (var i = 0, l = hostparts.length; i < l; i++) {
-                var part = hostparts[i];
-                if (!part) { continue; }
-                if (!part.match(hostnamePartPattern)) {
-                    var newpart = '';
-                    for (var j = 0, k = part.length; j < k; j++) {
-                        if (part.charCodeAt(j) > 127) {
-                            // we replace non-ASCII char with a temporary placeholder
-                            // we need this to make sure size of hostname is not
-                            // broken by replacing non-ASCII by nothing
-                            newpart += 'x';
-                        } else {
-                            newpart += part[j];
-                        }
-                    }
-                    // we test again with ASCII char only
-                    if (!newpart.match(hostnamePartPattern)) {
-                        var validParts = hostparts.slice(0, i);
-                        var notHost = hostparts.slice(i + 1);
-                        var bit = part.match(hostnamePartStart);
-                        if (bit) {
-                            validParts.push(bit[1]);
-                            notHost.unshift(bit[2]);
-                        }
-                        if (notHost.length) {
-                            rest = '/' + notHost.join('.') + rest;
-                        }
-                        this.hostname = validParts.join('.');
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (this.hostname.length > hostnameMaxLen) {
-            this.hostname = '';
-        } else {
-            // hostnames are always lower case.
-            this.hostname = this.hostname.toLowerCase();
-        }
-
-        if (!ipv6Hostname) {
-            // IDNA Support: Returns a punycoded representation of "domain".
-            // It only converts parts of the domain name that
-            // have non-ASCII characters, i.e. it doesn't matter if
-            // you call it with a domain that already is ASCII-only.
-            this.hostname = punycode.toASCII(this.hostname);
-        }
-
-        var p = this.port ? ':' + this.port : '';
-        var h = this.hostname || '';
-        this.host = h + p;
-        this.href += this.host;
-
-        // strip [ and ] from the hostname
-        // the host field still retains them, though
-        if (ipv6Hostname) {
-            this.hostname = this.hostname.substr(1, this.hostname.length - 2);
-            if (rest[0] !== '/') {
-                rest = '/' + rest;
-            }
-        }
-    }
-
-    // now rest is set to the post-host stuff.
-    // chop off any delim chars.
-    if (!unsafeProtocol[lowerProto]) {
-
-        // First, make 100% sure that any "autoEscape" chars get
-        // escaped, even if encodeURIComponent doesn't think they
-        // need to be.
-        for (var i = 0, l = autoEscape.length; i < l; i++) {
-            var ae = autoEscape[i];
-            if (rest.indexOf(ae) === -1)
-            { continue; }
-            var esc = encodeURIComponent(ae);
-            if (esc === ae) {
-                esc = escape(ae);
-            }
-            rest = rest.split(ae).join(esc);
-        }
-    }
-
-
-    // chop off from the tail first.
-    var hash = rest.indexOf('#');
-    if (hash !== -1) {
-        // got a fragment string.
-        this.hash = rest.substr(hash);
-        rest = rest.slice(0, hash);
-    }
-    var qm = rest.indexOf('?');
-    if (qm !== -1) {
-        this.search = rest.substr(qm);
-        this.query = rest.substr(qm + 1);
+  if (!slashesDenoteHost && url.split('#').length === 1) {
+    // Try fast path regexp
+    var simplePath = simplePathPattern.exec(rest);
+    if (simplePath) {
+      this.path = rest;
+      this.href = rest;
+      this.pathname = simplePath[1];
+      if (simplePath[2]) {
+        this.search = simplePath[2];
         if (parseQueryString) {
-            this.query = querystring.parse(this.query);
+          this.query = querystring.parse(this.search.substr(1));
+        } else {
+          this.query = this.search.substr(1);
         }
-        rest = rest.slice(0, qm);
-    } else if (parseQueryString) {
-        // no query string, but parseQueryString still requested
+      } else if (parseQueryString) {
         this.search = '';
         this.query = {};
+      }
+      return this;
     }
-    if (rest) { this.pathname = rest; }
-    if (slashedProtocol[lowerProto] &&
-        this.hostname && !this.pathname) {
-        this.pathname = '/';
+  }
+
+  var proto = protocolPattern.exec(rest);
+  if (proto) {
+    proto = proto[0];
+    var lowerProto = proto.toLowerCase();
+    this.protocol = lowerProto;
+    rest = rest.substr(proto.length);
+  }
+
+  // figure out if it's got a host
+  // user@server is *always* interpreted as a hostname, and url
+  // resolution will treat //foo/bar as host=foo,path=bar because that's
+  // how the browser resolves relative URLs.
+  if (slashesDenoteHost || proto || rest.match(/^\/\/[^@\/]+@[^@\/]+/)) {
+    var slashes = rest.substr(0, 2) === '//';
+    if (slashes && !(proto && hostlessProtocol[proto])) {
+      rest = rest.substr(2);
+      this.slashes = true;
+    }
+  }
+
+  if (!hostlessProtocol[proto] &&
+      (slashes || (proto && !slashedProtocol[proto]))) {
+
+    // there's a hostname.
+    // the first instance of /, ?, ;, or # ends the host.
+    //
+    // If there is an @ in the hostname, then non-host chars *are* allowed
+    // to the left of the last @ sign, unless some host-ending character
+    // comes *before* the @-sign.
+    // URLs are obnoxious.
+    //
+    // ex:
+    // http://a@b@c/ => user:a@b host:c
+    // http://a@b?@c => user:a host:c path:/?@c
+
+    // v0.12 TODO(isaacs): This is not quite how Chrome does things.
+    // Review our test case against browsers more comprehensively.
+
+    // find the first instance of any hostEndingChars
+    var hostEnd = -1;
+    for (var i = 0; i < hostEndingChars.length; i++) {
+      var hec = rest.indexOf(hostEndingChars[i]);
+      if (hec !== -1 && (hostEnd === -1 || hec < hostEnd))
+        { hostEnd = hec; }
     }
 
-    //to support http.request
-    if (this.pathname || this.search) {
-        var p = this.pathname || '';
-        var s = this.search || '';
-        this.path = p + s;
+    // at this point, either we have an explicit point where the
+    // auth portion cannot go past, or the last @ char is the decider.
+    var auth, atSign;
+    if (hostEnd === -1) {
+      // atSign can be anywhere.
+      atSign = rest.lastIndexOf('@');
+    } else {
+      // atSign must be in auth portion.
+      // http://a@b/c@d => host:b auth:a path:/c@d
+      atSign = rest.lastIndexOf('@', hostEnd);
     }
 
-    // finally, reconstruct the href based on what has been validated.
-    this.href = this.format();
-    return this;
+    // Now we have a portion which is definitely the auth.
+    // Pull that off.
+    if (atSign !== -1) {
+      auth = rest.slice(0, atSign);
+      rest = rest.slice(atSign + 1);
+      this.auth = decodeURIComponent(auth);
+    }
+
+    // the host is the remaining to the left of the first non-host char
+    hostEnd = -1;
+    for (var i = 0; i < nonHostChars.length; i++) {
+      var hec = rest.indexOf(nonHostChars[i]);
+      if (hec !== -1 && (hostEnd === -1 || hec < hostEnd))
+        { hostEnd = hec; }
+    }
+    // if we still have not hit it, then the entire thing is a host.
+    if (hostEnd === -1)
+      { hostEnd = rest.length; }
+
+    this.host = rest.slice(0, hostEnd);
+    rest = rest.slice(hostEnd);
+
+    // pull out port.
+    this.parseHost();
+
+    // we've indicated that there is a hostname,
+    // so even if it's empty, it has to be present.
+    this.hostname = this.hostname || '';
+
+    // if hostname begins with [ and ends with ]
+    // assume that it's an IPv6 address.
+    var ipv6Hostname = this.hostname[0] === '[' &&
+        this.hostname[this.hostname.length - 1] === ']';
+
+    // validate a little.
+    if (!ipv6Hostname) {
+      var hostparts = this.hostname.split(/\./);
+      for (var i = 0, l = hostparts.length; i < l; i++) {
+        var part = hostparts[i];
+        if (!part) { continue; }
+        if (!part.match(hostnamePartPattern)) {
+          var newpart = '';
+          for (var j = 0, k = part.length; j < k; j++) {
+            if (part.charCodeAt(j) > 127) {
+              // we replace non-ASCII char with a temporary placeholder
+              // we need this to make sure size of hostname is not
+              // broken by replacing non-ASCII by nothing
+              newpart += 'x';
+            } else {
+              newpart += part[j];
+            }
+          }
+          // we test again with ASCII char only
+          if (!newpart.match(hostnamePartPattern)) {
+            var validParts = hostparts.slice(0, i);
+            var notHost = hostparts.slice(i + 1);
+            var bit = part.match(hostnamePartStart);
+            if (bit) {
+              validParts.push(bit[1]);
+              notHost.unshift(bit[2]);
+            }
+            if (notHost.length) {
+              rest = '/' + notHost.join('.') + rest;
+            }
+            this.hostname = validParts.join('.');
+            break;
+          }
+        }
+      }
+    }
+
+    if (this.hostname.length > hostnameMaxLen) {
+      this.hostname = '';
+    } else {
+      // hostnames are always lower case.
+      this.hostname = this.hostname.toLowerCase();
+    }
+
+    if (!ipv6Hostname) {
+      // IDNA Support: Returns a punycoded representation of "domain".
+      // It only converts parts of the domain name that
+      // have non-ASCII characters, i.e. it doesn't matter if
+      // you call it with a domain that already is ASCII-only.
+      this.hostname = punycode.toASCII(this.hostname);
+    }
+
+    var p = this.port ? ':' + this.port : '';
+    var h = this.hostname || '';
+    this.host = h + p;
+    this.href += this.host;
+
+    // strip [ and ] from the hostname
+    // the host field still retains them, though
+    if (ipv6Hostname) {
+      this.hostname = this.hostname.substr(1, this.hostname.length - 2);
+      if (rest[0] !== '/') {
+        rest = '/' + rest;
+      }
+    }
+  }
+
+  // now rest is set to the post-host stuff.
+  // chop off any delim chars.
+  if (!unsafeProtocol[lowerProto]) {
+
+    // First, make 100% sure that any "autoEscape" chars get
+    // escaped, even if encodeURIComponent doesn't think they
+    // need to be.
+    for (var i = 0, l = autoEscape.length; i < l; i++) {
+      var ae = autoEscape[i];
+      if (rest.indexOf(ae) === -1)
+        { continue; }
+      var esc = encodeURIComponent(ae);
+      if (esc === ae) {
+        esc = escape(ae);
+      }
+      rest = rest.split(ae).join(esc);
+    }
+  }
+
+
+  // chop off from the tail first.
+  var hash = rest.indexOf('#');
+  if (hash !== -1) {
+    // got a fragment string.
+    this.hash = rest.substr(hash);
+    rest = rest.slice(0, hash);
+  }
+  var qm = rest.indexOf('?');
+  if (qm !== -1) {
+    this.search = rest.substr(qm);
+    this.query = rest.substr(qm + 1);
+    if (parseQueryString) {
+      this.query = querystring.parse(this.query);
+    }
+    rest = rest.slice(0, qm);
+  } else if (parseQueryString) {
+    // no query string, but parseQueryString still requested
+    this.search = '';
+    this.query = {};
+  }
+  if (rest) { this.pathname = rest; }
+  if (slashedProtocol[lowerProto] &&
+      this.hostname && !this.pathname) {
+    this.pathname = '/';
+  }
+
+  //to support http.request
+  if (this.pathname || this.search) {
+    var p = this.pathname || '';
+    var s = this.search || '';
+    this.path = p + s;
+  }
+
+  // finally, reconstruct the href based on what has been validated.
+  this.href = this.format();
+  return this;
 };
 
 // format a parsed object into a url string
 function urlFormat(obj) {
-    // ensure it's an object, and not a string url.
-    // If it's an obj, this is a no-op.
-    // this way, you can call url_format() on strings
-    // to clean up potentially wonky urls.
-    if (util.isString(obj)) { obj = urlParse(obj); }
-    if (!(obj instanceof Url)) { return Url.prototype.format.call(obj); }
-    return obj.format();
+  // ensure it's an object, and not a string url.
+  // If it's an obj, this is a no-op.
+  // this way, you can call url_format() on strings
+  // to clean up potentially wonky urls.
+  if (util.isString(obj)) { obj = urlParse(obj); }
+  if (!(obj instanceof Url)) { return Url.prototype.format.call(obj); }
+  return obj.format();
 }
 
 Url.prototype.format = function() {
-    var auth = this.auth || '';
-    if (auth) {
-        auth = encodeURIComponent(auth);
-        auth = auth.replace(/%3A/i, ':');
-        auth += '@';
+  var auth = this.auth || '';
+  if (auth) {
+    auth = encodeURIComponent(auth);
+    auth = auth.replace(/%3A/i, ':');
+    auth += '@';
+  }
+
+  var protocol = this.protocol || '',
+      pathname = this.pathname || '',
+      hash = this.hash || '',
+      host = false,
+      query = '';
+
+  if (this.host) {
+    host = auth + this.host;
+  } else if (this.hostname) {
+    host = auth + (this.hostname.indexOf(':') === -1 ?
+        this.hostname :
+        '[' + this.hostname + ']');
+    if (this.port) {
+      host += ':' + this.port;
     }
+  }
 
-    var protocol = this.protocol || '',
-        pathname = this.pathname || '',
-        hash = this.hash || '',
-        host = false,
-        query = '';
+  if (this.query &&
+      util.isObject(this.query) &&
+      Object.keys(this.query).length) {
+    query = querystring.stringify(this.query);
+  }
 
-    if (this.host) {
-        host = auth + this.host;
-    } else if (this.hostname) {
-        host = auth + (this.hostname.indexOf(':') === -1 ?
-            this.hostname :
-            '[' + this.hostname + ']');
-        if (this.port) {
-            host += ':' + this.port;
-        }
-    }
+  var search = this.search || (query && ('?' + query)) || '';
 
-    if (this.query &&
-        util.isObject(this.query) &&
-        Object.keys(this.query).length) {
-        query = querystring.stringify(this.query);
-    }
+  if (protocol && protocol.substr(-1) !== ':') { protocol += ':'; }
 
-    var search = this.search || (query && ('?' + query)) || '';
+  // only the slashedProtocols get the //.  Not mailto:, xmpp:, etc.
+  // unless they had them to begin with.
+  if (this.slashes ||
+      (!protocol || slashedProtocol[protocol]) && host !== false) {
+    host = '//' + (host || '');
+    if (pathname && pathname.charAt(0) !== '/') { pathname = '/' + pathname; }
+  } else if (!host) {
+    host = '';
+  }
 
-    if (protocol && protocol.substr(-1) !== ':') { protocol += ':'; }
+  if (hash && hash.charAt(0) !== '#') { hash = '#' + hash; }
+  if (search && search.charAt(0) !== '?') { search = '?' + search; }
 
-    // only the slashedProtocols get the //.  Not mailto:, xmpp:, etc.
-    // unless they had them to begin with.
-    if (this.slashes ||
-        (!protocol || slashedProtocol[protocol]) && host !== false) {
-        host = '//' + (host || '');
-        if (pathname && pathname.charAt(0) !== '/') { pathname = '/' + pathname; }
-    } else if (!host) {
-        host = '';
-    }
+  pathname = pathname.replace(/[?#]/g, function(match) {
+    return encodeURIComponent(match);
+  });
+  search = search.replace('#', '%23');
 
-    if (hash && hash.charAt(0) !== '#') { hash = '#' + hash; }
-    if (search && search.charAt(0) !== '?') { search = '?' + search; }
-
-    pathname = pathname.replace(/[?#]/g, function(match) {
-        return encodeURIComponent(match);
-    });
-    search = search.replace('#', '%23');
-
-    return protocol + host + pathname + search + hash;
+  return protocol + host + pathname + search + hash;
 };
 
 function urlResolve(source, relative) {
-    return urlParse(source, false, true).resolve(relative);
+  return urlParse(source, false, true).resolve(relative);
 }
 
 Url.prototype.resolve = function(relative) {
-    return this.resolveObject(urlParse(relative, false, true)).format();
+  return this.resolveObject(urlParse(relative, false, true)).format();
 };
 
 function urlResolveObject(source, relative) {
-    if (!source) { return relative; }
-    return urlParse(source, false, true).resolveObject(relative);
+  if (!source) { return relative; }
+  return urlParse(source, false, true).resolveObject(relative);
 }
 
 Url.prototype.resolveObject = function(relative) {
-    if (util.isString(relative)) {
-        var rel = new Url();
-        rel.parse(relative, false, true);
-        relative = rel;
+  if (util.isString(relative)) {
+    var rel = new Url();
+    rel.parse(relative, false, true);
+    relative = rel;
+  }
+
+  var result = new Url();
+  var tkeys = Object.keys(this);
+  for (var tk = 0; tk < tkeys.length; tk++) {
+    var tkey = tkeys[tk];
+    result[tkey] = this[tkey];
+  }
+
+  // hash is always overridden, no matter what.
+  // even href="" will remove it.
+  result.hash = relative.hash;
+
+  // if the relative url is empty, then there's nothing left to do here.
+  if (relative.href === '') {
+    result.href = result.format();
+    return result;
+  }
+
+  // hrefs like //foo/bar always cut to the protocol.
+  if (relative.slashes && !relative.protocol) {
+    // take everything except the protocol from relative
+    var rkeys = Object.keys(relative);
+    for (var rk = 0; rk < rkeys.length; rk++) {
+      var rkey = rkeys[rk];
+      if (rkey !== 'protocol')
+        { result[rkey] = relative[rkey]; }
     }
 
-    var result = new Url();
-    var tkeys = Object.keys(this);
-    for (var tk = 0; tk < tkeys.length; tk++) {
-        var tkey = tkeys[tk];
-        result[tkey] = this[tkey];
+    //urlParse appends trailing / to urls like http://www.example.com
+    if (slashedProtocol[result.protocol] &&
+        result.hostname && !result.pathname) {
+      result.path = result.pathname = '/';
     }
 
-    // hash is always overridden, no matter what.
-    // even href="" will remove it.
-    result.hash = relative.hash;
+    result.href = result.format();
+    return result;
+  }
 
-    // if the relative url is empty, then there's nothing left to do here.
-    if (relative.href === '') {
-        result.href = result.format();
-        return result;
+  if (relative.protocol && relative.protocol !== result.protocol) {
+    // if it's a known url protocol, then changing
+    // the protocol does weird things
+    // first, if it's not file:, then we MUST have a host,
+    // and if there was a path
+    // to begin with, then we MUST have a path.
+    // if it is file:, then the host is dropped,
+    // because that's known to be hostless.
+    // anything else is assumed to be absolute.
+    if (!slashedProtocol[relative.protocol]) {
+      var keys = Object.keys(relative);
+      for (var v = 0; v < keys.length; v++) {
+        var k = keys[v];
+        result[k] = relative[k];
+      }
+      result.href = result.format();
+      return result;
     }
 
-    // hrefs like //foo/bar always cut to the protocol.
-    if (relative.slashes && !relative.protocol) {
-        // take everything except the protocol from relative
-        var rkeys = Object.keys(relative);
-        for (var rk = 0; rk < rkeys.length; rk++) {
-            var rkey = rkeys[rk];
-            if (rkey !== 'protocol')
-            { result[rkey] = relative[rkey]; }
-        }
-
-        //urlParse appends trailing / to urls like http://www.example.com
-        if (slashedProtocol[result.protocol] &&
-            result.hostname && !result.pathname) {
-            result.path = result.pathname = '/';
-        }
-
-        result.href = result.format();
-        return result;
-    }
-
-    if (relative.protocol && relative.protocol !== result.protocol) {
-        // if it's a known url protocol, then changing
-        // the protocol does weird things
-        // first, if it's not file:, then we MUST have a host,
-        // and if there was a path
-        // to begin with, then we MUST have a path.
-        // if it is file:, then the host is dropped,
-        // because that's known to be hostless.
-        // anything else is assumed to be absolute.
-        if (!slashedProtocol[relative.protocol]) {
-            var keys = Object.keys(relative);
-            for (var v = 0; v < keys.length; v++) {
-                var k = keys[v];
-                result[k] = relative[k];
-            }
-            result.href = result.format();
-            return result;
-        }
-
-        result.protocol = relative.protocol;
-        if (!relative.host && !hostlessProtocol[relative.protocol]) {
-            var relPath = (relative.pathname || '').split('/');
-            while (relPath.length && !(relative.host = relPath.shift())){ ; }
-            if (!relative.host) { relative.host = ''; }
-            if (!relative.hostname) { relative.hostname = ''; }
-            if (relPath[0] !== '') { relPath.unshift(''); }
-            if (relPath.length < 2) { relPath.unshift(''); }
-            result.pathname = relPath.join('/');
-        } else {
-            result.pathname = relative.pathname;
-        }
-        result.search = relative.search;
-        result.query = relative.query;
-        result.host = relative.host || '';
-        result.auth = relative.auth;
-        result.hostname = relative.hostname || relative.host;
-        result.port = relative.port;
-        // to support http.request
-        if (result.pathname || result.search) {
-            var p = result.pathname || '';
-            var s = result.search || '';
-            result.path = p + s;
-        }
-        result.slashes = result.slashes || relative.slashes;
-        result.href = result.format();
-        return result;
-    }
-
-    var isSourceAbs = (result.pathname && result.pathname.charAt(0) === '/'),
-        isRelAbs = (
-            relative.host ||
-            relative.pathname && relative.pathname.charAt(0) === '/'
-        ),
-        mustEndAbs = (isRelAbs || isSourceAbs ||
-            (result.host && relative.pathname)),
-        removeAllDots = mustEndAbs,
-        srcPath = result.pathname && result.pathname.split('/') || [],
-        relPath = relative.pathname && relative.pathname.split('/') || [],
-        psychotic = result.protocol && !slashedProtocol[result.protocol];
-
-    // if the url is a non-slashed url, then relative
-    // links like ../.. should be able
-    // to crawl up to the hostname, as well.  This is strange.
-    // result.protocol has already been set by now.
-    // Later on, put the first path part into the host field.
-    if (psychotic) {
-        result.hostname = '';
-        result.port = null;
-        if (result.host) {
-            if (srcPath[0] === '') { srcPath[0] = result.host; }
-            else { srcPath.unshift(result.host); }
-        }
-        result.host = '';
-        if (relative.protocol) {
-            relative.hostname = null;
-            relative.port = null;
-            if (relative.host) {
-                if (relPath[0] === '') { relPath[0] = relative.host; }
-                else { relPath.unshift(relative.host); }
-            }
-            relative.host = null;
-        }
-        mustEndAbs = mustEndAbs && (relPath[0] === '' || srcPath[0] === '');
-    }
-
-    if (isRelAbs) {
-        // it's absolute.
-        result.host = (relative.host || relative.host === '') ?
-            relative.host : result.host;
-        result.hostname = (relative.hostname || relative.hostname === '') ?
-            relative.hostname : result.hostname;
-        result.search = relative.search;
-        result.query = relative.query;
-        srcPath = relPath;
-        // fall through to the dot-handling below.
-    } else if (relPath.length) {
-        // it's relative
-        // throw away the existing file, and take the new path instead.
-        if (!srcPath) { srcPath = []; }
-        srcPath.pop();
-        srcPath = srcPath.concat(relPath);
-        result.search = relative.search;
-        result.query = relative.query;
-    } else if (!util.isNullOrUndefined(relative.search)) {
-        // just pull out the search.
-        // like href='?foo'.
-        // Put this after the other two cases because it simplifies the booleans
-        if (psychotic) {
-            result.hostname = result.host = srcPath.shift();
-            //occationaly the auth can get stuck only in host
-            //this especially happens in cases like
-            //url.resolveObject('mailto:local1@domain1', 'local2@domain2')
-            var authInHost = result.host && result.host.indexOf('@') > 0 ?
-                result.host.split('@') : false;
-            if (authInHost) {
-                result.auth = authInHost.shift();
-                result.host = result.hostname = authInHost.shift();
-            }
-        }
-        result.search = relative.search;
-        result.query = relative.query;
-        //to support http.request
-        if (!util.isNull(result.pathname) || !util.isNull(result.search)) {
-            result.path = (result.pathname ? result.pathname : '') +
-                (result.search ? result.search : '');
-        }
-        result.href = result.format();
-        return result;
-    }
-
-    if (!srcPath.length) {
-        // no path at all.  easy.
-        // we've already handled the other stuff above.
-        result.pathname = null;
-        //to support http.request
-        if (result.search) {
-            result.path = '/' + result.search;
-        } else {
-            result.path = null;
-        }
-        result.href = result.format();
-        return result;
-    }
-
-    // if a url ENDs in . or .., then it must get a trailing slash.
-    // however, if it ends in anything else non-slashy,
-    // then it must NOT get a trailing slash.
-    var last = srcPath.slice(-1)[0];
-    var hasTrailingSlash = (
-        (result.host || relative.host || srcPath.length > 1) &&
-        (last === '.' || last === '..') || last === '');
-
-    // strip single dots, resolve double dots to parent dir
-    // if the path tries to go above the root, `up` ends up > 0
-    var up = 0;
-    for (var i = srcPath.length; i >= 0; i--) {
-        last = srcPath[i];
-        if (last === '.') {
-            srcPath.splice(i, 1);
-        } else if (last === '..') {
-            srcPath.splice(i, 1);
-            up++;
-        } else if (up) {
-            srcPath.splice(i, 1);
-            up--;
-        }
-    }
-
-    // if the path is allowed to go above the root, restore leading ..s
-    if (!mustEndAbs && !removeAllDots) {
-        for (; up--; up) {
-            srcPath.unshift('..');
-        }
-    }
-
-    if (mustEndAbs && srcPath[0] !== '' &&
-        (!srcPath[0] || srcPath[0].charAt(0) !== '/')) {
-        srcPath.unshift('');
-    }
-
-    if (hasTrailingSlash && (srcPath.join('/').substr(-1) !== '/')) {
-        srcPath.push('');
-    }
-
-    var isAbsolute = srcPath[0] === '' ||
-        (srcPath[0] && srcPath[0].charAt(0) === '/');
-
-    // put the host back
-    if (psychotic) {
-        result.hostname = result.host = isAbsolute ? '' :
-            srcPath.length ? srcPath.shift() : '';
-        //occationaly the auth can get stuck only in host
-        //this especially happens in cases like
-        //url.resolveObject('mailto:local1@domain1', 'local2@domain2')
-        var authInHost = result.host && result.host.indexOf('@') > 0 ?
-            result.host.split('@') : false;
-        if (authInHost) {
-            result.auth = authInHost.shift();
-            result.host = result.hostname = authInHost.shift();
-        }
-    }
-
-    mustEndAbs = mustEndAbs || (result.host && srcPath.length);
-
-    if (mustEndAbs && !isAbsolute) {
-        srcPath.unshift('');
-    }
-
-    if (!srcPath.length) {
-        result.pathname = null;
-        result.path = null;
+    result.protocol = relative.protocol;
+    if (!relative.host && !hostlessProtocol[relative.protocol]) {
+      var relPath = (relative.pathname || '').split('/');
+      while (relPath.length && !(relative.host = relPath.shift())){ ; }
+      if (!relative.host) { relative.host = ''; }
+      if (!relative.hostname) { relative.hostname = ''; }
+      if (relPath[0] !== '') { relPath.unshift(''); }
+      if (relPath.length < 2) { relPath.unshift(''); }
+      result.pathname = relPath.join('/');
     } else {
-        result.pathname = srcPath.join('/');
+      result.pathname = relative.pathname;
     }
-
-    //to support request.http
-    if (!util.isNull(result.pathname) || !util.isNull(result.search)) {
-        result.path = (result.pathname ? result.pathname : '') +
-            (result.search ? result.search : '');
+    result.search = relative.search;
+    result.query = relative.query;
+    result.host = relative.host || '';
+    result.auth = relative.auth;
+    result.hostname = relative.hostname || relative.host;
+    result.port = relative.port;
+    // to support http.request
+    if (result.pathname || result.search) {
+      var p = result.pathname || '';
+      var s = result.search || '';
+      result.path = p + s;
     }
-    result.auth = relative.auth || result.auth;
     result.slashes = result.slashes || relative.slashes;
     result.href = result.format();
     return result;
+  }
+
+  var isSourceAbs = (result.pathname && result.pathname.charAt(0) === '/'),
+      isRelAbs = (
+          relative.host ||
+          relative.pathname && relative.pathname.charAt(0) === '/'
+      ),
+      mustEndAbs = (isRelAbs || isSourceAbs ||
+                    (result.host && relative.pathname)),
+      removeAllDots = mustEndAbs,
+      srcPath = result.pathname && result.pathname.split('/') || [],
+      relPath = relative.pathname && relative.pathname.split('/') || [],
+      psychotic = result.protocol && !slashedProtocol[result.protocol];
+
+  // if the url is a non-slashed url, then relative
+  // links like ../.. should be able
+  // to crawl up to the hostname, as well.  This is strange.
+  // result.protocol has already been set by now.
+  // Later on, put the first path part into the host field.
+  if (psychotic) {
+    result.hostname = '';
+    result.port = null;
+    if (result.host) {
+      if (srcPath[0] === '') { srcPath[0] = result.host; }
+      else { srcPath.unshift(result.host); }
+    }
+    result.host = '';
+    if (relative.protocol) {
+      relative.hostname = null;
+      relative.port = null;
+      if (relative.host) {
+        if (relPath[0] === '') { relPath[0] = relative.host; }
+        else { relPath.unshift(relative.host); }
+      }
+      relative.host = null;
+    }
+    mustEndAbs = mustEndAbs && (relPath[0] === '' || srcPath[0] === '');
+  }
+
+  if (isRelAbs) {
+    // it's absolute.
+    result.host = (relative.host || relative.host === '') ?
+                  relative.host : result.host;
+    result.hostname = (relative.hostname || relative.hostname === '') ?
+                      relative.hostname : result.hostname;
+    result.search = relative.search;
+    result.query = relative.query;
+    srcPath = relPath;
+    // fall through to the dot-handling below.
+  } else if (relPath.length) {
+    // it's relative
+    // throw away the existing file, and take the new path instead.
+    if (!srcPath) { srcPath = []; }
+    srcPath.pop();
+    srcPath = srcPath.concat(relPath);
+    result.search = relative.search;
+    result.query = relative.query;
+  } else if (!util.isNullOrUndefined(relative.search)) {
+    // just pull out the search.
+    // like href='?foo'.
+    // Put this after the other two cases because it simplifies the booleans
+    if (psychotic) {
+      result.hostname = result.host = srcPath.shift();
+      //occationaly the auth can get stuck only in host
+      //this especially happens in cases like
+      //url.resolveObject('mailto:local1@domain1', 'local2@domain2')
+      var authInHost = result.host && result.host.indexOf('@') > 0 ?
+                       result.host.split('@') : false;
+      if (authInHost) {
+        result.auth = authInHost.shift();
+        result.host = result.hostname = authInHost.shift();
+      }
+    }
+    result.search = relative.search;
+    result.query = relative.query;
+    //to support http.request
+    if (!util.isNull(result.pathname) || !util.isNull(result.search)) {
+      result.path = (result.pathname ? result.pathname : '') +
+                    (result.search ? result.search : '');
+    }
+    result.href = result.format();
+    return result;
+  }
+
+  if (!srcPath.length) {
+    // no path at all.  easy.
+    // we've already handled the other stuff above.
+    result.pathname = null;
+    //to support http.request
+    if (result.search) {
+      result.path = '/' + result.search;
+    } else {
+      result.path = null;
+    }
+    result.href = result.format();
+    return result;
+  }
+
+  // if a url ENDs in . or .., then it must get a trailing slash.
+  // however, if it ends in anything else non-slashy,
+  // then it must NOT get a trailing slash.
+  var last = srcPath.slice(-1)[0];
+  var hasTrailingSlash = (
+      (result.host || relative.host || srcPath.length > 1) &&
+      (last === '.' || last === '..') || last === '');
+
+  // strip single dots, resolve double dots to parent dir
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = srcPath.length; i >= 0; i--) {
+    last = srcPath[i];
+    if (last === '.') {
+      srcPath.splice(i, 1);
+    } else if (last === '..') {
+      srcPath.splice(i, 1);
+      up++;
+    } else if (up) {
+      srcPath.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (!mustEndAbs && !removeAllDots) {
+    for (; up--; up) {
+      srcPath.unshift('..');
+    }
+  }
+
+  if (mustEndAbs && srcPath[0] !== '' &&
+      (!srcPath[0] || srcPath[0].charAt(0) !== '/')) {
+    srcPath.unshift('');
+  }
+
+  if (hasTrailingSlash && (srcPath.join('/').substr(-1) !== '/')) {
+    srcPath.push('');
+  }
+
+  var isAbsolute = srcPath[0] === '' ||
+      (srcPath[0] && srcPath[0].charAt(0) === '/');
+
+  // put the host back
+  if (psychotic) {
+    result.hostname = result.host = isAbsolute ? '' :
+                                    srcPath.length ? srcPath.shift() : '';
+    //occationaly the auth can get stuck only in host
+    //this especially happens in cases like
+    //url.resolveObject('mailto:local1@domain1', 'local2@domain2')
+    var authInHost = result.host && result.host.indexOf('@') > 0 ?
+                     result.host.split('@') : false;
+    if (authInHost) {
+      result.auth = authInHost.shift();
+      result.host = result.hostname = authInHost.shift();
+    }
+  }
+
+  mustEndAbs = mustEndAbs || (result.host && srcPath.length);
+
+  if (mustEndAbs && !isAbsolute) {
+    srcPath.unshift('');
+  }
+
+  if (!srcPath.length) {
+    result.pathname = null;
+    result.path = null;
+  } else {
+    result.pathname = srcPath.join('/');
+  }
+
+  //to support request.http
+  if (!util.isNull(result.pathname) || !util.isNull(result.search)) {
+    result.path = (result.pathname ? result.pathname : '') +
+                  (result.search ? result.search : '');
+  }
+  result.auth = relative.auth || result.auth;
+  result.slashes = result.slashes || relative.slashes;
+  result.href = result.format();
+  return result;
 };
 
 Url.prototype.parseHost = function() {
-    var host = this.host;
-    var port = portPattern.exec(host);
-    if (port) {
-        port = port[0];
-        if (port !== ':') {
-            this.port = port.substr(1);
-        }
-        host = host.substr(0, host.length - port.length);
+  var host = this.host;
+  var port = portPattern.exec(host);
+  if (port) {
+    port = port[0];
+    if (port !== ':') {
+      this.port = port.substr(1);
     }
-    if (host) { this.hostname = host; }
+    host = host.substr(0, host.length - port.length);
+  }
+  if (host) { this.hostname = host; }
 };
 
 var url = {
-    parse: parse,
-    resolve: resolve$1,
-    resolveObject: resolveObject,
-    format: format,
-    Url: Url_1
+	parse: parse,
+	resolve: resolve$1,
+	resolveObject: resolveObject,
+	format: format,
+	Url: Url_1
 };
 
 var aliceblue = "#f0f8ff";
@@ -3590,154 +3590,154 @@ var whitesmoke = "#f5f5f5";
 var yellow = "#ffff00";
 var yellowgreen = "#9acd32";
 var cssColorNames = {
-    aliceblue: aliceblue,
-    antiquewhite: antiquewhite,
-    aqua: aqua,
-    aquamarine: aquamarine,
-    azure: azure,
-    beige: beige,
-    bisque: bisque,
-    black: black,
-    blanchedalmond: blanchedalmond,
-    blue: blue,
-    blueviolet: blueviolet,
-    brown: brown,
-    burlywood: burlywood,
-    cadetblue: cadetblue,
-    chartreuse: chartreuse,
-    chocolate: chocolate,
-    coral: coral,
-    cornflowerblue: cornflowerblue,
-    cornsilk: cornsilk,
-    crimson: crimson,
-    cyan: cyan,
-    darkblue: darkblue,
-    darkcyan: darkcyan,
-    darkgoldenrod: darkgoldenrod,
-    darkgray: darkgray,
-    darkgreen: darkgreen,
-    darkgrey: darkgrey,
-    darkkhaki: darkkhaki,
-    darkmagenta: darkmagenta,
-    darkolivegreen: darkolivegreen,
-    darkorange: darkorange,
-    darkorchid: darkorchid,
-    darkred: darkred,
-    darksalmon: darksalmon,
-    darkseagreen: darkseagreen,
-    darkslateblue: darkslateblue,
-    darkslategray: darkslategray,
-    darkslategrey: darkslategrey,
-    darkturquoise: darkturquoise,
-    darkviolet: darkviolet,
-    deeppink: deeppink,
-    deepskyblue: deepskyblue,
-    dimgray: dimgray,
-    dimgrey: dimgrey,
-    dodgerblue: dodgerblue,
-    firebrick: firebrick,
-    floralwhite: floralwhite,
-    forestgreen: forestgreen,
-    fuchsia: fuchsia,
-    gainsboro: gainsboro,
-    ghostwhite: ghostwhite,
-    goldenrod: goldenrod,
-    gold: gold,
-    gray: gray,
-    green: green,
-    greenyellow: greenyellow,
-    grey: grey,
-    honeydew: honeydew,
-    hotpink: hotpink,
-    indianred: indianred,
-    indigo: indigo,
-    ivory: ivory,
-    khaki: khaki,
-    lavenderblush: lavenderblush,
-    lavender: lavender,
-    lawngreen: lawngreen,
-    lemonchiffon: lemonchiffon,
-    lightblue: lightblue,
-    lightcoral: lightcoral,
-    lightcyan: lightcyan,
-    lightgoldenrodyellow: lightgoldenrodyellow,
-    lightgray: lightgray,
-    lightgreen: lightgreen,
-    lightgrey: lightgrey,
-    lightpink: lightpink,
-    lightsalmon: lightsalmon,
-    lightseagreen: lightseagreen,
-    lightskyblue: lightskyblue,
-    lightslategray: lightslategray,
-    lightslategrey: lightslategrey,
-    lightsteelblue: lightsteelblue,
-    lightyellow: lightyellow,
-    lime: lime,
-    limegreen: limegreen,
-    linen: linen,
-    magenta: magenta,
-    maroon: maroon,
-    mediumaquamarine: mediumaquamarine,
-    mediumblue: mediumblue,
-    mediumorchid: mediumorchid,
-    mediumpurple: mediumpurple,
-    mediumseagreen: mediumseagreen,
-    mediumslateblue: mediumslateblue,
-    mediumspringgreen: mediumspringgreen,
-    mediumturquoise: mediumturquoise,
-    mediumvioletred: mediumvioletred,
-    midnightblue: midnightblue,
-    mintcream: mintcream,
-    mistyrose: mistyrose,
-    moccasin: moccasin,
-    navajowhite: navajowhite,
-    navy: navy,
-    oldlace: oldlace,
-    olive: olive,
-    olivedrab: olivedrab,
-    orange: orange,
-    orangered: orangered,
-    orchid: orchid,
-    palegoldenrod: palegoldenrod,
-    palegreen: palegreen,
-    paleturquoise: paleturquoise,
-    palevioletred: palevioletred,
-    papayawhip: papayawhip,
-    peachpuff: peachpuff,
-    peru: peru,
-    pink: pink,
-    plum: plum,
-    powderblue: powderblue,
-    purple: purple,
-    rebeccapurple: rebeccapurple,
-    red: red,
-    rosybrown: rosybrown,
-    royalblue: royalblue,
-    saddlebrown: saddlebrown,
-    salmon: salmon,
-    sandybrown: sandybrown,
-    seagreen: seagreen,
-    seashell: seashell,
-    sienna: sienna,
-    silver: silver,
-    skyblue: skyblue,
-    slateblue: slateblue,
-    slategray: slategray,
-    slategrey: slategrey,
-    snow: snow,
-    springgreen: springgreen,
-    steelblue: steelblue,
-    tan: tan,
-    teal: teal,
-    thistle: thistle,
-    tomato: tomato,
-    turquoise: turquoise,
-    violet: violet,
-    wheat: wheat,
-    white: white,
-    whitesmoke: whitesmoke,
-    yellow: yellow,
-    yellowgreen: yellowgreen
+	aliceblue: aliceblue,
+	antiquewhite: antiquewhite,
+	aqua: aqua,
+	aquamarine: aquamarine,
+	azure: azure,
+	beige: beige,
+	bisque: bisque,
+	black: black,
+	blanchedalmond: blanchedalmond,
+	blue: blue,
+	blueviolet: blueviolet,
+	brown: brown,
+	burlywood: burlywood,
+	cadetblue: cadetblue,
+	chartreuse: chartreuse,
+	chocolate: chocolate,
+	coral: coral,
+	cornflowerblue: cornflowerblue,
+	cornsilk: cornsilk,
+	crimson: crimson,
+	cyan: cyan,
+	darkblue: darkblue,
+	darkcyan: darkcyan,
+	darkgoldenrod: darkgoldenrod,
+	darkgray: darkgray,
+	darkgreen: darkgreen,
+	darkgrey: darkgrey,
+	darkkhaki: darkkhaki,
+	darkmagenta: darkmagenta,
+	darkolivegreen: darkolivegreen,
+	darkorange: darkorange,
+	darkorchid: darkorchid,
+	darkred: darkred,
+	darksalmon: darksalmon,
+	darkseagreen: darkseagreen,
+	darkslateblue: darkslateblue,
+	darkslategray: darkslategray,
+	darkslategrey: darkslategrey,
+	darkturquoise: darkturquoise,
+	darkviolet: darkviolet,
+	deeppink: deeppink,
+	deepskyblue: deepskyblue,
+	dimgray: dimgray,
+	dimgrey: dimgrey,
+	dodgerblue: dodgerblue,
+	firebrick: firebrick,
+	floralwhite: floralwhite,
+	forestgreen: forestgreen,
+	fuchsia: fuchsia,
+	gainsboro: gainsboro,
+	ghostwhite: ghostwhite,
+	goldenrod: goldenrod,
+	gold: gold,
+	gray: gray,
+	green: green,
+	greenyellow: greenyellow,
+	grey: grey,
+	honeydew: honeydew,
+	hotpink: hotpink,
+	indianred: indianred,
+	indigo: indigo,
+	ivory: ivory,
+	khaki: khaki,
+	lavenderblush: lavenderblush,
+	lavender: lavender,
+	lawngreen: lawngreen,
+	lemonchiffon: lemonchiffon,
+	lightblue: lightblue,
+	lightcoral: lightcoral,
+	lightcyan: lightcyan,
+	lightgoldenrodyellow: lightgoldenrodyellow,
+	lightgray: lightgray,
+	lightgreen: lightgreen,
+	lightgrey: lightgrey,
+	lightpink: lightpink,
+	lightsalmon: lightsalmon,
+	lightseagreen: lightseagreen,
+	lightskyblue: lightskyblue,
+	lightslategray: lightslategray,
+	lightslategrey: lightslategrey,
+	lightsteelblue: lightsteelblue,
+	lightyellow: lightyellow,
+	lime: lime,
+	limegreen: limegreen,
+	linen: linen,
+	magenta: magenta,
+	maroon: maroon,
+	mediumaquamarine: mediumaquamarine,
+	mediumblue: mediumblue,
+	mediumorchid: mediumorchid,
+	mediumpurple: mediumpurple,
+	mediumseagreen: mediumseagreen,
+	mediumslateblue: mediumslateblue,
+	mediumspringgreen: mediumspringgreen,
+	mediumturquoise: mediumturquoise,
+	mediumvioletred: mediumvioletred,
+	midnightblue: midnightblue,
+	mintcream: mintcream,
+	mistyrose: mistyrose,
+	moccasin: moccasin,
+	navajowhite: navajowhite,
+	navy: navy,
+	oldlace: oldlace,
+	olive: olive,
+	olivedrab: olivedrab,
+	orange: orange,
+	orangered: orangered,
+	orchid: orchid,
+	palegoldenrod: palegoldenrod,
+	palegreen: palegreen,
+	paleturquoise: paleturquoise,
+	palevioletred: palevioletred,
+	papayawhip: papayawhip,
+	peachpuff: peachpuff,
+	peru: peru,
+	pink: pink,
+	plum: plum,
+	powderblue: powderblue,
+	purple: purple,
+	rebeccapurple: rebeccapurple,
+	red: red,
+	rosybrown: rosybrown,
+	royalblue: royalblue,
+	saddlebrown: saddlebrown,
+	salmon: salmon,
+	sandybrown: sandybrown,
+	seagreen: seagreen,
+	seashell: seashell,
+	sienna: sienna,
+	silver: silver,
+	skyblue: skyblue,
+	slateblue: slateblue,
+	slategray: slategray,
+	slategrey: slategrey,
+	snow: snow,
+	springgreen: springgreen,
+	steelblue: steelblue,
+	tan: tan,
+	teal: teal,
+	thistle: thistle,
+	tomato: tomato,
+	turquoise: turquoise,
+	violet: violet,
+	wheat: wheat,
+	white: white,
+	whitesmoke: whitesmoke,
+	yellow: yellow,
+	yellowgreen: yellowgreen
 };
 
 /*!
@@ -4666,7 +4666,7 @@ function removeItems(arr, startIdx, removeCount) {
  */
 function sign$1(n) {
     if (n === 0)
-    { return 0; }
+        { return 0; }
     return n < 0 ? -1 : 1;
 }
 
@@ -5053,44 +5053,44 @@ function getResolutionOfUrl(url, defaultValue) {
 }
 
 var utils = {
-    __proto__: null,
-    BaseTextureCache: BaseTextureCache,
-    CanvasRenderTarget: CanvasRenderTarget,
-    DATA_URI: DATA_URI,
-    ProgramCache: ProgramCache,
-    TextureCache: TextureCache,
-    clearTextureCache: clearTextureCache,
-    correctBlendMode: correctBlendMode,
-    createIndicesForQuads: createIndicesForQuads,
-    decomposeDataUri: decomposeDataUri,
-    deprecation: deprecation,
-    destroyTextureCache: destroyTextureCache,
-    determineCrossOrigin: determineCrossOrigin,
-    getBufferType: getBufferType,
-    getResolutionOfUrl: getResolutionOfUrl,
-    hex2rgb: hex2rgb,
-    hex2string: hex2string,
-    interleaveTypedArrays: interleaveTypedArrays,
-    isPow2: isPow2,
-    isWebGLSupported: isWebGLSupported,
-    log2: log2,
-    nextPow2: nextPow2,
-    premultiplyBlendMode: premultiplyBlendMode,
-    premultiplyRgba: premultiplyRgba,
-    premultiplyTint: premultiplyTint,
-    premultiplyTintToRgba: premultiplyTintToRgba,
-    removeItems: removeItems,
-    rgb2hex: rgb2hex,
-    sayHello: sayHello,
-    sign: sign$1,
-    skipHello: skipHello,
-    string2hex: string2hex,
-    trimCanvas: trimCanvas,
-    uid: uid,
-    isMobile: isMobile$1,
-    EventEmitter: eventemitter3,
-    earcut: earcut_1,
-    url: url
+  __proto__: null,
+  BaseTextureCache: BaseTextureCache,
+  CanvasRenderTarget: CanvasRenderTarget,
+  DATA_URI: DATA_URI,
+  ProgramCache: ProgramCache,
+  TextureCache: TextureCache,
+  clearTextureCache: clearTextureCache,
+  correctBlendMode: correctBlendMode,
+  createIndicesForQuads: createIndicesForQuads,
+  decomposeDataUri: decomposeDataUri,
+  deprecation: deprecation,
+  destroyTextureCache: destroyTextureCache,
+  determineCrossOrigin: determineCrossOrigin,
+  getBufferType: getBufferType,
+  getResolutionOfUrl: getResolutionOfUrl,
+  hex2rgb: hex2rgb,
+  hex2string: hex2string,
+  interleaveTypedArrays: interleaveTypedArrays,
+  isPow2: isPow2,
+  isWebGLSupported: isWebGLSupported,
+  log2: log2,
+  nextPow2: nextPow2,
+  premultiplyBlendMode: premultiplyBlendMode,
+  premultiplyRgba: premultiplyRgba,
+  premultiplyTint: premultiplyTint,
+  premultiplyTintToRgba: premultiplyTintToRgba,
+  removeItems: removeItems,
+  rgb2hex: rgb2hex,
+  sayHello: sayHello,
+  sign: sign$1,
+  skipHello: skipHello,
+  string2hex: string2hex,
+  trimCanvas: trimCanvas,
+  uid: uid,
+  isMobile: isMobile$1,
+  EventEmitter: eventemitter3,
+  earcut: earcut_1,
+  url: url
 };
 
 /*!
@@ -5460,10 +5460,10 @@ var Circle = /** @class */ (function () {
         return (dx + dy <= r2);
     };
     /**
-     * Returns the framing rectangle of the circle as a Rectangle object
-     *
-     * @return {PIXI.Rectangle} the framing rectangle
-     */
+    * Returns the framing rectangle of the circle as a Rectangle object
+    *
+    * @return {PIXI.Rectangle} the framing rectangle
+    */
     Circle.prototype.getBounds = function () {
         return new Rectangle(this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
     };
@@ -6638,7 +6638,7 @@ var groupD8 = {
      */
     inv: function (rotation) {
         if (rotation & 8) // true only if between 8 & 15 (reflections)
-        {
+         {
             return rotation & 15; // or rotation % 16
         }
         return (-rotation) & 7; // or (8 - rotation) % 8
@@ -8575,7 +8575,7 @@ var Container = /** @class */ (function (_super) {
             var child = children[0];
             var index = this.children.indexOf(child);
             if (index === -1)
-            { return null; }
+                { return null; }
             child.parent = null;
             // ensure child transform will be recalculated
             child.transform._parentID = -1;
@@ -9315,7 +9315,7 @@ var AccessibilityManager = /** @class */ (function () {
                     div.title = child.accessibleTitle;
                     div.tabIndex = child.tabIndex;
                     if (this.debug)
-                    { this.updateDebugHTML(div); }
+                        { this.updateDebugHTML(div); }
                 }
             }
         }
@@ -9406,7 +9406,7 @@ var AccessibilityManager = /** @class */ (function () {
             div.setAttribute('aria-label', displayObject.accessibleHint);
         }
         if (this.debug)
-        { this.updateDebugHTML(div); }
+            { this.updateDebugHTML(div); }
         displayObject._accessibleActive = true;
         displayObject._accessibleDiv = div;
         div.displayObject = displayObject;
@@ -10829,8 +10829,8 @@ var TreeSearch = /** @class */ (function () {
             }
             interactiveParent = false;
         }
-            // If there is a mask, no need to hitTest against anything else if the pointer is not within the mask.
-            // We still want to hitTestChildren, however, to ensure a mouseout can still be generated.
+        // If there is a mask, no need to hitTest against anything else if the pointer is not within the mask.
+        // We still want to hitTestChildren, however, to ensure a mouseout can still be generated.
         // https://github.com/pixijs/pixi.js/issues/5135
         else if (displayObject._mask) {
             if (hitTest) {
@@ -11034,7 +11034,7 @@ var interactiveTarget = {
      */
     get trackedPointers() {
         if (this._trackedPointers === undefined)
-        { this._trackedPointers = {}; }
+            { this._trackedPointers = {}; }
         return this._trackedPointers;
     },
     /**
@@ -12010,7 +12010,7 @@ var InteractionManager = /** @class */ (function (_super) {
     InteractionManager.prototype.onPointerDown = function (originalEvent) {
         // if we support touch events, then only use those for touch events, not pointer events
         if (this.supportsTouchEvents && originalEvent.pointerType === 'touch')
-        { return; }
+            { return; }
         var events = this.normalizeToPointerData(originalEvent);
         /*
          * No need to prevent default on natural pointer events, as there are no side effects
@@ -12114,7 +12114,7 @@ var InteractionManager = /** @class */ (function (_super) {
     InteractionManager.prototype.onPointerCancel = function (event) {
         // if we support touch events, then only use those for touch events, not pointer events
         if (this.supportsTouchEvents && event.pointerType === 'touch')
-        { return; }
+            { return; }
         this.onPointerComplete(event, true, this.processPointerCancel);
     };
     /**
@@ -12144,7 +12144,7 @@ var InteractionManager = /** @class */ (function (_super) {
     InteractionManager.prototype.onPointerUp = function (event) {
         // if we support touch events, then only use those for touch events, not pointer events
         if (this.supportsTouchEvents && event.pointerType === 'touch')
-        { return; }
+            { return; }
         this.onPointerComplete(event, false, this.processPointerUp);
     };
     /**
@@ -12195,7 +12195,7 @@ var InteractionManager = /** @class */ (function (_super) {
         if (hit) {
             this.dispatchEvent(displayObject, 'pointerup', interactionEvent);
             if (isTouch)
-            { this.dispatchEvent(displayObject, 'touchend', interactionEvent); }
+                { this.dispatchEvent(displayObject, 'touchend', interactionEvent); }
             if (trackingData) {
                 // emit pointertap if not a mouse, or if the mouse block decided it was a tap
                 if (!isMouse || isMouseTap) {
@@ -12212,7 +12212,7 @@ var InteractionManager = /** @class */ (function (_super) {
         else if (trackingData) {
             this.dispatchEvent(displayObject, 'pointerupoutside', interactionEvent);
             if (isTouch)
-            { this.dispatchEvent(displayObject, 'touchendoutside', interactionEvent); }
+                { this.dispatchEvent(displayObject, 'touchendoutside', interactionEvent); }
         }
         // Only remove the tracking data if there is no over/down state still associated with it
         if (trackingData && trackingData.none) {
@@ -12228,7 +12228,7 @@ var InteractionManager = /** @class */ (function (_super) {
     InteractionManager.prototype.onPointerMove = function (originalEvent) {
         // if we support touch events, then only use those for touch events, not pointer events
         if (this.supportsTouchEvents && originalEvent.pointerType === 'touch')
-        { return; }
+            { return; }
         var events = this.normalizeToPointerData(originalEvent);
         if (events[0].pointerType === 'mouse' || events[0].pointerType === 'pen') {
             this._didMove = true;
@@ -12243,9 +12243,9 @@ var InteractionManager = /** @class */ (function (_super) {
             this.processInteractive(interactionEvent, this.lastObjectRendered, this.processPointerMove, true);
             this.emit('pointermove', interactionEvent);
             if (event.pointerType === 'touch')
-            { this.emit('touchmove', interactionEvent); }
+                { this.emit('touchmove', interactionEvent); }
             if (event.pointerType === 'mouse' || event.pointerType === 'pen')
-            { this.emit('mousemove', interactionEvent); }
+                { this.emit('mousemove', interactionEvent); }
         }
         if (events[0].pointerType === 'mouse') {
             this.setCursorMode(this.cursor);
@@ -12270,9 +12270,9 @@ var InteractionManager = /** @class */ (function (_super) {
         if (!this.moveWhenInside || hit) {
             this.dispatchEvent(displayObject, 'pointermove', interactionEvent);
             if (isTouch)
-            { this.dispatchEvent(displayObject, 'touchmove', interactionEvent); }
+                { this.dispatchEvent(displayObject, 'touchmove', interactionEvent); }
             if (isMouse)
-            { this.dispatchEvent(displayObject, 'mousemove', interactionEvent); }
+                { this.dispatchEvent(displayObject, 'mousemove', interactionEvent); }
         }
     };
     /**
@@ -12284,7 +12284,7 @@ var InteractionManager = /** @class */ (function (_super) {
     InteractionManager.prototype.onPointerOut = function (originalEvent) {
         // if we support touch events, then only use those for touch events, not pointer events
         if (this.supportsTouchEvents && originalEvent.pointerType === 'touch')
-        { return; }
+            { return; }
         var events = this.normalizeToPointerData(originalEvent);
         // Only mouse and pointer can call onPointerOut, so events will always be length 1
         var event = events[0];
@@ -12324,7 +12324,7 @@ var InteractionManager = /** @class */ (function (_super) {
             trackingData = displayObject.trackedPointers[id] = new InteractionTrackingData(id);
         }
         if (trackingData === undefined)
-        { return; }
+            { return; }
         if (hit && this.mouseOverRenderer) {
             if (!trackingData.over) {
                 trackingData.over = true;
@@ -12448,38 +12448,38 @@ var InteractionManager = /** @class */ (function (_super) {
             for (var i = 0, li = event.changedTouches.length; i < li; i++) {
                 var touch = event.changedTouches[i];
                 if (typeof touch.button === 'undefined')
-                { touch.button = event.touches.length ? 1 : 0; }
+                    { touch.button = event.touches.length ? 1 : 0; }
                 if (typeof touch.buttons === 'undefined')
-                { touch.buttons = event.touches.length ? 1 : 0; }
+                    { touch.buttons = event.touches.length ? 1 : 0; }
                 if (typeof touch.isPrimary === 'undefined') {
                     touch.isPrimary = event.touches.length === 1 && event.type === 'touchstart';
                 }
                 if (typeof touch.width === 'undefined')
-                { touch.width = touch.radiusX || 1; }
+                    { touch.width = touch.radiusX || 1; }
                 if (typeof touch.height === 'undefined')
-                { touch.height = touch.radiusY || 1; }
+                    { touch.height = touch.radiusY || 1; }
                 if (typeof touch.tiltX === 'undefined')
-                { touch.tiltX = 0; }
+                    { touch.tiltX = 0; }
                 if (typeof touch.tiltY === 'undefined')
-                { touch.tiltY = 0; }
+                    { touch.tiltY = 0; }
                 if (typeof touch.pointerType === 'undefined')
-                { touch.pointerType = 'touch'; }
+                    { touch.pointerType = 'touch'; }
                 if (typeof touch.pointerId === 'undefined')
-                { touch.pointerId = touch.identifier || 0; }
+                    { touch.pointerId = touch.identifier || 0; }
                 if (typeof touch.pressure === 'undefined')
-                { touch.pressure = touch.force || 0.5; }
+                    { touch.pressure = touch.force || 0.5; }
                 if (typeof touch.twist === 'undefined')
-                { touch.twist = 0; }
+                    { touch.twist = 0; }
                 if (typeof touch.tangentialPressure === 'undefined')
-                { touch.tangentialPressure = 0; }
+                    { touch.tangentialPressure = 0; }
                 // TODO: Remove these, as layerX/Y is not a standard, is deprecated, has uneven
                 // support, and the fill ins are not quite the same
                 // offsetX/Y might be okay, but is not the same as clientX/Y when the canvas's top
                 // left is not 0,0 on the page
                 if (typeof touch.layerX === 'undefined')
-                { touch.layerX = touch.offsetX = touch.clientX; }
+                    { touch.layerX = touch.offsetX = touch.clientX; }
                 if (typeof touch.layerY === 'undefined')
-                { touch.layerY = touch.offsetY = touch.clientY; }
+                    { touch.layerY = touch.offsetY = touch.clientY; }
                 // mark the touch as normalized, just so that we know we did it
                 touch.isNormalized = true;
                 normalizedEvents.push(touch);
@@ -12490,25 +12490,25 @@ var InteractionManager = /** @class */ (function (_super) {
             || (event instanceof MouseEvent && (!this.supportsPointerEvents || !(event instanceof self.PointerEvent)))) {
             var tempEvent = event;
             if (typeof tempEvent.isPrimary === 'undefined')
-            { tempEvent.isPrimary = true; }
+                { tempEvent.isPrimary = true; }
             if (typeof tempEvent.width === 'undefined')
-            { tempEvent.width = 1; }
+                { tempEvent.width = 1; }
             if (typeof tempEvent.height === 'undefined')
-            { tempEvent.height = 1; }
+                { tempEvent.height = 1; }
             if (typeof tempEvent.tiltX === 'undefined')
-            { tempEvent.tiltX = 0; }
+                { tempEvent.tiltX = 0; }
             if (typeof tempEvent.tiltY === 'undefined')
-            { tempEvent.tiltY = 0; }
+                { tempEvent.tiltY = 0; }
             if (typeof tempEvent.pointerType === 'undefined')
-            { tempEvent.pointerType = 'mouse'; }
+                { tempEvent.pointerType = 'mouse'; }
             if (typeof tempEvent.pointerId === 'undefined')
-            { tempEvent.pointerId = MOUSE_POINTER_ID; }
+                { tempEvent.pointerId = MOUSE_POINTER_ID; }
             if (typeof tempEvent.pressure === 'undefined')
-            { tempEvent.pressure = 0.5; }
+                { tempEvent.pressure = 0.5; }
             if (typeof tempEvent.twist === 'undefined')
-            { tempEvent.twist = 0; }
+                { tempEvent.twist = 0; }
             if (typeof tempEvent.tangentialPressure === 'undefined')
-            { tempEvent.tangentialPressure = 0; }
+                { tempEvent.tangentialPressure = 0; }
             // mark the mouse event as normalized, just so that we know we did it
             tempEvent.isNormalized = true;
             normalizedEvents.push(tempEvent);
@@ -13902,10 +13902,10 @@ var AbstractMultiResource = /** @class */ (function (_super) {
         var promises = resources.map(function (item) { return item.load(); });
         this._load = Promise.all(promises)
             .then(function () {
-                var _a = _this.items[0], realWidth = _a.realWidth, realHeight = _a.realHeight;
-                _this.resize(realWidth, realHeight);
-                return Promise.resolve(_this);
-            });
+            var _a = _this.items[0], realWidth = _a.realWidth, realHeight = _a.realHeight;
+            _this.resize(realWidth, realHeight);
+            return Promise.resolve(_this);
+        });
         return this._load;
     };
     return AbstractMultiResource;
@@ -13988,9 +13988,9 @@ var ArrayResource = /** @class */ (function (_super) {
                 itemDirtyIds[i] = item.dirtyId;
                 if (item.valid) {
                     gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, // xoffset
-                        0, // yoffset
-                        i, // zoffset
-                        item.resource.width, item.resource.height, 1, texture.format, texture.type, item.resource.source);
+                    0, // yoffset
+                    i, // zoffset
+                    item.resource.width, item.resource.height, 1, texture.format, texture.type, item.resource.source);
                 }
             }
         }
@@ -14413,14 +14413,14 @@ var ImageResource = /** @class */ (function (_super) {
             premultiplyAlpha: this.alphaMode === ALPHA_MODES.UNPACK ? 'premultiply' : 'none',
         })
             .then(function (bitmap) {
-                if (_this.destroyed) {
-                    return Promise.reject();
-                }
-                _this.bitmap = bitmap;
-                _this.update();
-                _this._process = null;
-                return Promise.resolve(_this);
-            });
+            if (_this.destroyed) {
+                return Promise.reject();
+            }
+            _this.bitmap = bitmap;
+            _this.update();
+            _this._process = null;
+            return Promise.resolve(_this);
+        });
         return this._process;
     };
     /**
@@ -15086,9 +15086,9 @@ var DepthResource = /** @class */ (function (_super) {
         else {
             glTexture.width = baseTexture.width;
             glTexture.height = baseTexture.height;
-            gl.texImage2D(baseTexture.target, 0,
-                //  gl.DEPTH_COMPONENT16 Needed for depth to render properly in webgl2.0
-                renderer.context.webGLVersion === 1 ? gl.DEPTH_COMPONENT : gl.DEPTH_COMPONENT16, baseTexture.width, baseTexture.height, 0, baseTexture.format, baseTexture.type, this.data);
+            gl.texImage2D(baseTexture.target, 0, 
+            //  gl.DEPTH_COMPONENT16 Needed for depth to render properly in webgl2.0
+            renderer.context.webGLVersion === 1 ? gl.DEPTH_COMPONENT : gl.DEPTH_COMPONENT16, baseTexture.width, baseTexture.height, 0, baseTexture.format, baseTexture.type, this.data);
         }
         return true;
     };
@@ -15229,7 +15229,7 @@ var Framebuffer = /** @class */ (function () {
         width = Math.ceil(width);
         height = Math.ceil(height);
         if (width === this.width && height === this.height)
-        { return; }
+            { return; }
         this.width = width;
         this.height = height;
         this.dirtyId++;
@@ -16636,21 +16636,21 @@ var Geometry = /** @class */ (function () {
         this.refCount = 0;
     }
     /**
-     *
-     * Adds an attribute to the geometry
-     * Note: `stride` and `start` should be `undefined` if you dont know them, not 0!
-     *
-     * @param {String} id - the name of the attribute (matching up to a shader)
-     * @param {PIXI.Buffer|number[]} [buffer] - the buffer that holds the data of the attribute . You can also provide an Array and a buffer will be created from it.
-     * @param {Number} [size=0] - the size of the attribute. If you have 2 floats per vertex (eg position x and y) this would be 2
-     * @param {Boolean} [normalized=false] - should the data be normalized.
-     * @param {Number} [type=PIXI.TYPES.FLOAT] - what type of number is the attribute. Check {PIXI.TYPES} to see the ones available
-     * @param {Number} [stride] - How far apart (in floats) the start of each value is. (used for interleaving data)
-     * @param {Number} [start] - How far into the array to start reading values (used for interleaving data)
-     * @param {boolean} [instance=false] - Instancing flag
-     *
-     * @return {PIXI.Geometry} returns self, useful for chaining.
-     */
+    *
+    * Adds an attribute to the geometry
+    * Note: `stride` and `start` should be `undefined` if you dont know them, not 0!
+    *
+    * @param {String} id - the name of the attribute (matching up to a shader)
+    * @param {PIXI.Buffer|number[]} [buffer] - the buffer that holds the data of the attribute . You can also provide an Array and a buffer will be created from it.
+    * @param {Number} [size=0] - the size of the attribute. If you have 2 floats per vertex (eg position x and y) this would be 2
+    * @param {Boolean} [normalized=false] - should the data be normalized.
+    * @param {Number} [type=PIXI.TYPES.FLOAT] - what type of number is the attribute. Check {PIXI.TYPES} to see the ones available
+    * @param {Number} [stride] - How far apart (in floats) the start of each value is. (used for interleaving data)
+    * @param {Number} [start] - How far into the array to start reading values (used for interleaving data)
+    * @param {boolean} [instance=false] - Instancing flag
+    *
+    * @return {PIXI.Geometry} returns self, useful for chaining.
+    */
     Geometry.prototype.addAttribute = function (id, buffer, size, normalized, type, stride, start, instance) {
         if (size === void 0) { size = 0; }
         if (normalized === void 0) { normalized = false; }
@@ -16702,13 +16702,13 @@ var Geometry = /** @class */ (function () {
         return this.buffers[this.getAttribute(id).buffer];
     };
     /**
-     *
-     * Adds an index buffer to the geometry
-     * The index buffer contains integers, three for each triangle in the geometry, which reference the various attribute buffers (position, colour, UV coordinates, other UV coordinates, normal, …). There is only ONE index buffer.
-     *
-     * @param {PIXI.Buffer|number[]} [buffer] - the buffer that holds the data of the index buffer. You can also provide an Array and a buffer will be created from it.
-     * @return {PIXI.Geometry} returns self, useful for chaining.
-     */
+    *
+    * Adds an index buffer to the geometry
+    * The index buffer contains integers, three for each triangle in the geometry, which reference the various attribute buffers (position, colour, UV coordinates, other UV coordinates, normal, …). There is only ONE index buffer.
+    *
+    * @param {PIXI.Buffer|number[]} [buffer] - the buffer that holds the data of the index buffer. You can also provide an Array and a buffer will be created from it.
+    * @return {PIXI.Geometry} returns self, useful for chaining.
+    */
     Geometry.prototype.addIndex = function (buffer) {
         if (!(buffer instanceof Buffer)) {
             // its an array!
@@ -16741,7 +16741,7 @@ var Geometry = /** @class */ (function () {
     Geometry.prototype.interleave = function () {
         // a simple check to see if buffers are already interleaved..
         if (this.buffers.length === 1 || (this.buffers.length === 2 && this.indexBuffer))
-        { return this; }
+            { return this; }
         // assume already that no buffers are interleaved
         var arrays = [];
         var sizes = [];
@@ -19384,7 +19384,7 @@ function checkMaxIfStatementsInShader(maxIfs, gl) {
     }
     var shader = gl.createShader(gl.FRAGMENT_SHADER);
     while (true) // eslint-disable-line no-constant-condition
-    {
+     {
         var fragmentSrc = fragTemplate.replace(/%forloop%/gi, generateIfTestSrc(maxIfs));
         gl.shaderSource(shader, fragmentSrc);
         gl.compileShader(shader);
@@ -22462,9 +22462,9 @@ var AbstractRenderer = /** @class */ (function (_super) {
         region = region || displayObject.getLocalBounds(null, true);
         // minimum texture size is 1x1, 0x0 will throw an error
         if (region.width === 0)
-        { region.width = 1; }
+            { region.width = 1; }
         if (region.height === 0)
-        { region.height = 1; }
+            { region.height = 1; }
         var renderTexture = RenderTexture.create({
             width: region.width | 0,
             height: region.height | 0,
@@ -24133,27 +24133,27 @@ var ResizePlugin = /** @class */ (function () {
      */
     ResizePlugin.init = function (options) {
         var _this = this;
-        Object.defineProperty(this, 'resizeTo',
-            /**
-             * The HTML element or window to automatically resize the
-             * renderer's view element to match width and height.
-             * @member {Window|HTMLElement}
-             * @name resizeTo
-             * @memberof PIXI.Application#
-             */
-            {
-                set: function (dom) {
-                    self.removeEventListener('resize', this.queueResize);
-                    this._resizeTo = dom;
-                    if (dom) {
-                        self.addEventListener('resize', this.queueResize);
-                        this.resize();
-                    }
-                },
-                get: function () {
-                    return this._resizeTo;
-                },
-            });
+        Object.defineProperty(this, 'resizeTo', 
+        /**
+         * The HTML element or window to automatically resize the
+         * renderer's view element to match width and height.
+         * @member {Window|HTMLElement}
+         * @name resizeTo
+         * @memberof PIXI.Application#
+         */
+        {
+            set: function (dom) {
+                self.removeEventListener('resize', this.queueResize);
+                this._resizeTo = dom;
+                if (dom) {
+                    self.addEventListener('resize', this.queueResize);
+                    this.resize();
+                }
+            },
+            get: function () {
+                return this._resizeTo;
+            },
+        });
         /**
          * Resize is throttled, so it's safe to call this multiple times per frame and it'll
          * only be called once.
@@ -24455,221 +24455,221 @@ var Extract = /** @class */ (function () {
 'use strict';
 
 function parseURI (str, opts) {
-    if (!str) { return undefined }
+  if (!str) { return undefined }
 
-    opts = opts || {};
+  opts = opts || {};
 
-    var o = {
-        key: [
-            'source',
-            'protocol',
-            'authority',
-            'userInfo',
-            'user',
-            'password',
-            'host',
-            'port',
-            'relative',
-            'path',
-            'directory',
-            'file',
-            'query',
-            'anchor'
-        ],
-        q: {
-            name: 'queryKey',
-            parser: /(?:^|&)([^&=]*)=?([^&]*)/g
-        },
-        parser: {
-            strict: /^(?:([^:\/?#]+):)?(?:\/\/((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?))?((((?:[^?#\/]*\/)*)([^?#]*))(?:\?([^#]*))?(?:#(.*))?)/,
-            loose: /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/
-        }
-    };
+  var o = {
+    key: [
+      'source',
+      'protocol',
+      'authority',
+      'userInfo',
+      'user',
+      'password',
+      'host',
+      'port',
+      'relative',
+      'path',
+      'directory',
+      'file',
+      'query',
+      'anchor'
+    ],
+    q: {
+      name: 'queryKey',
+      parser: /(?:^|&)([^&=]*)=?([^&]*)/g
+    },
+    parser: {
+      strict: /^(?:([^:\/?#]+):)?(?:\/\/((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?))?((((?:[^?#\/]*\/)*)([^?#]*))(?:\?([^#]*))?(?:#(.*))?)/,
+      loose: /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/
+    }
+  };
 
-    var m = o.parser[opts.strictMode ? 'strict' : 'loose'].exec(str);
-    var uri = {};
-    var i = 14;
+  var m = o.parser[opts.strictMode ? 'strict' : 'loose'].exec(str);
+  var uri = {};
+  var i = 14;
 
-    while (i--) { uri[o.key[i]] = m[i] || ''; }
+  while (i--) { uri[o.key[i]] = m[i] || ''; }
 
-    uri[o.q.name] = {};
-    uri[o.key[12]].replace(o.q.parser, function ($0, $1, $2) {
-        if ($1) { uri[o.q.name][$1] = $2; }
-    });
+  uri[o.q.name] = {};
+  uri[o.key[12]].replace(o.q.parser, function ($0, $1, $2) {
+    if ($1) { uri[o.q.name][$1] = $2; }
+  });
 
-    return uri
+  return uri
 }
 
 var parseUri = parseURI;
 
 var miniSignals = createCommonjsModule(function (module, exports) {
-    'use strict';
+'use strict';
 
-    Object.defineProperty(exports, '__esModule', {
-        value: true
-    });
+Object.defineProperty(exports, '__esModule', {
+  value: true
+});
 
-    var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) { descriptor.writable = true; } Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) { defineProperties(Constructor.prototype, protoProps); } if (staticProps) { defineProperties(Constructor, staticProps); } return Constructor; }; })();
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) { descriptor.writable = true; } Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) { defineProperties(Constructor.prototype, protoProps); } if (staticProps) { defineProperties(Constructor, staticProps); } return Constructor; }; })();
 
-    function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
 
-    var MiniSignalBinding = (function () {
-        function MiniSignalBinding(fn, once, thisArg) {
-            if (once === undefined) { once = false; }
+var MiniSignalBinding = (function () {
+  function MiniSignalBinding(fn, once, thisArg) {
+    if (once === undefined) { once = false; }
 
-            _classCallCheck(this, MiniSignalBinding);
+    _classCallCheck(this, MiniSignalBinding);
 
-            this._fn = fn;
-            this._once = once;
-            this._thisArg = thisArg;
-            this._next = this._prev = this._owner = null;
-        }
+    this._fn = fn;
+    this._once = once;
+    this._thisArg = thisArg;
+    this._next = this._prev = this._owner = null;
+  }
 
-        _createClass(MiniSignalBinding, [{
-            key: 'detach',
-            value: function detach() {
-                if (this._owner === null) { return false; }
-                this._owner.detach(this);
-                return true;
-            }
-        }]);
-
-        return MiniSignalBinding;
-    })();
-
-    function _addMiniSignalBinding(self, node) {
-        if (!self._head) {
-            self._head = node;
-            self._tail = node;
-        } else {
-            self._tail._next = node;
-            node._prev = self._tail;
-            self._tail = node;
-        }
-
-        node._owner = self;
-
-        return node;
+  _createClass(MiniSignalBinding, [{
+    key: 'detach',
+    value: function detach() {
+      if (this._owner === null) { return false; }
+      this._owner.detach(this);
+      return true;
     }
+  }]);
 
-    var MiniSignal = (function () {
-        function MiniSignal() {
-            _classCallCheck(this, MiniSignal);
+  return MiniSignalBinding;
+})();
 
-            this._head = this._tail = undefined;
+function _addMiniSignalBinding(self, node) {
+  if (!self._head) {
+    self._head = node;
+    self._tail = node;
+  } else {
+    self._tail._next = node;
+    node._prev = self._tail;
+    self._tail = node;
+  }
+
+  node._owner = self;
+
+  return node;
+}
+
+var MiniSignal = (function () {
+  function MiniSignal() {
+    _classCallCheck(this, MiniSignal);
+
+    this._head = this._tail = undefined;
+  }
+
+  _createClass(MiniSignal, [{
+    key: 'handlers',
+    value: function handlers() {
+      var exists = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
+
+      var node = this._head;
+
+      if (exists) { return !!node; }
+
+      var ee = [];
+
+      while (node) {
+        ee.push(node);
+        node = node._next;
+      }
+
+      return ee;
+    }
+  }, {
+    key: 'has',
+    value: function has(node) {
+      if (!(node instanceof MiniSignalBinding)) {
+        throw new Error('MiniSignal#has(): First arg must be a MiniSignalBinding object.');
+      }
+
+      return node._owner === this;
+    }
+  }, {
+    key: 'dispatch',
+    value: function dispatch() {
+      var arguments$1 = arguments;
+
+      var node = this._head;
+
+      if (!node) { return false; }
+
+      while (node) {
+        if (node._once) { this.detach(node); }
+        node._fn.apply(node._thisArg, arguments$1);
+        node = node._next;
+      }
+
+      return true;
+    }
+  }, {
+    key: 'add',
+    value: function add(fn) {
+      var thisArg = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+
+      if (typeof fn !== 'function') {
+        throw new Error('MiniSignal#add(): First arg must be a Function.');
+      }
+      return _addMiniSignalBinding(this, new MiniSignalBinding(fn, false, thisArg));
+    }
+  }, {
+    key: 'once',
+    value: function once(fn) {
+      var thisArg = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+
+      if (typeof fn !== 'function') {
+        throw new Error('MiniSignal#once(): First arg must be a Function.');
+      }
+      return _addMiniSignalBinding(this, new MiniSignalBinding(fn, true, thisArg));
+    }
+  }, {
+    key: 'detach',
+    value: function detach(node) {
+      if (!(node instanceof MiniSignalBinding)) {
+        throw new Error('MiniSignal#detach(): First arg must be a MiniSignalBinding object.');
+      }
+      if (node._owner !== this) { return this; }
+
+      if (node._prev) { node._prev._next = node._next; }
+      if (node._next) { node._next._prev = node._prev; }
+
+      if (node === this._head) {
+        this._head = node._next;
+        if (node._next === null) {
+          this._tail = null;
         }
+      } else if (node === this._tail) {
+        this._tail = node._prev;
+        this._tail._next = null;
+      }
 
-        _createClass(MiniSignal, [{
-            key: 'handlers',
-            value: function handlers() {
-                var exists = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
+      node._owner = null;
+      return this;
+    }
+  }, {
+    key: 'detachAll',
+    value: function detachAll() {
+      var node = this._head;
+      if (!node) { return this; }
 
-                var node = this._head;
+      this._head = this._tail = null;
 
-                if (exists) { return !!node; }
+      while (node) {
+        node._owner = null;
+        node = node._next;
+      }
+      return this;
+    }
+  }]);
 
-                var ee = [];
+  return MiniSignal;
+})();
 
-                while (node) {
-                    ee.push(node);
-                    node = node._next;
-                }
+MiniSignal.MiniSignalBinding = MiniSignalBinding;
 
-                return ee;
-            }
-        }, {
-            key: 'has',
-            value: function has(node) {
-                if (!(node instanceof MiniSignalBinding)) {
-                    throw new Error('MiniSignal#has(): First arg must be a MiniSignalBinding object.');
-                }
-
-                return node._owner === this;
-            }
-        }, {
-            key: 'dispatch',
-            value: function dispatch() {
-                var arguments$1 = arguments;
-
-                var node = this._head;
-
-                if (!node) { return false; }
-
-                while (node) {
-                    if (node._once) { this.detach(node); }
-                    node._fn.apply(node._thisArg, arguments$1);
-                    node = node._next;
-                }
-
-                return true;
-            }
-        }, {
-            key: 'add',
-            value: function add(fn) {
-                var thisArg = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-
-                if (typeof fn !== 'function') {
-                    throw new Error('MiniSignal#add(): First arg must be a Function.');
-                }
-                return _addMiniSignalBinding(this, new MiniSignalBinding(fn, false, thisArg));
-            }
-        }, {
-            key: 'once',
-            value: function once(fn) {
-                var thisArg = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-
-                if (typeof fn !== 'function') {
-                    throw new Error('MiniSignal#once(): First arg must be a Function.');
-                }
-                return _addMiniSignalBinding(this, new MiniSignalBinding(fn, true, thisArg));
-            }
-        }, {
-            key: 'detach',
-            value: function detach(node) {
-                if (!(node instanceof MiniSignalBinding)) {
-                    throw new Error('MiniSignal#detach(): First arg must be a MiniSignalBinding object.');
-                }
-                if (node._owner !== this) { return this; }
-
-                if (node._prev) { node._prev._next = node._next; }
-                if (node._next) { node._next._prev = node._prev; }
-
-                if (node === this._head) {
-                    this._head = node._next;
-                    if (node._next === null) {
-                        this._tail = null;
-                    }
-                } else if (node === this._tail) {
-                    this._tail = node._prev;
-                    this._tail._next = null;
-                }
-
-                node._owner = null;
-                return this;
-            }
-        }, {
-            key: 'detachAll',
-            value: function detachAll() {
-                var node = this._head;
-                if (!node) { return this; }
-
-                this._head = this._tail = null;
-
-                while (node) {
-                    node._owner = null;
-                    node = node._next;
-                }
-                return this;
-            }
-        }]);
-
-        return MiniSignal;
-    })();
-
-    MiniSignal.MiniSignalBinding = MiniSignalBinding;
-
-    exports['default'] = MiniSignal;
-    module.exports = exports['default'];
+exports['default'] = MiniSignal;
+module.exports = exports['default'];
 });
 
 var Signal = /*@__PURE__*/getDefaultExportFromCjs(miniSignals);
@@ -24712,26 +24712,26 @@ function _noop() {}
 
 
 function eachSeries(array, iterator, callback, deferNext) {
-    var i = 0;
-    var len = array.length;
+  var i = 0;
+  var len = array.length;
 
-    (function next(err) {
-        if (err || i === len) {
-            if (callback) {
-                callback(err);
-            }
+  (function next(err) {
+    if (err || i === len) {
+      if (callback) {
+        callback(err);
+      }
 
-            return;
-        }
+      return;
+    }
 
-        if (deferNext) {
-            setTimeout(function () {
-                iterator(array[i++], next);
-            }, 1);
-        } else {
-            iterator(array[i++], next);
-        }
-    })();
+    if (deferNext) {
+      setTimeout(function () {
+        iterator(array[i++], next);
+      }, 1);
+    } else {
+      iterator(array[i++], next);
+    }
+  })();
 }
 /**
  * Ensures a function is only called once.
@@ -24743,15 +24743,15 @@ function eachSeries(array, iterator, callback, deferNext) {
  */
 
 function onlyOnce(fn) {
-    return function onceWrapper() {
-        if (fn === null) {
-            throw new Error('Callback was already called.');
-        }
+  return function onceWrapper() {
+    if (fn === null) {
+      throw new Error('Callback was already called.');
+    }
 
-        var callFn = fn;
-        fn = null;
-        callFn.apply(this, arguments);
-    };
+    var callFn = fn;
+    fn = null;
+    callFn.apply(this, arguments);
+  };
 }
 /**
  * Async queue implementation,
@@ -24765,140 +24765,140 @@ function onlyOnce(fn) {
 
 
 function queue(worker, concurrency) {
-    if (concurrency == null) {
-        // eslint-disable-line no-eq-null,eqeqeq
-        concurrency = 1;
-    } else if (concurrency === 0) {
-        throw new Error('Concurrency must not be zero');
+  if (concurrency == null) {
+    // eslint-disable-line no-eq-null,eqeqeq
+    concurrency = 1;
+  } else if (concurrency === 0) {
+    throw new Error('Concurrency must not be zero');
+  }
+
+  var workers = 0;
+  var q = {
+    _tasks: [],
+    concurrency: concurrency,
+    saturated: _noop,
+    unsaturated: _noop,
+    buffer: concurrency / 4,
+    empty: _noop,
+    drain: _noop,
+    error: _noop,
+    started: false,
+    paused: false,
+    push: function push(data, callback) {
+      _insert(data, false, callback);
+    },
+    kill: function kill() {
+      workers = 0;
+      q.drain = _noop;
+      q.started = false;
+      q._tasks = [];
+    },
+    unshift: function unshift(data, callback) {
+      _insert(data, true, callback);
+    },
+    process: function process() {
+      while (!q.paused && workers < q.concurrency && q._tasks.length) {
+        var task = q._tasks.shift();
+
+        if (q._tasks.length === 0) {
+          q.empty();
+        }
+
+        workers += 1;
+
+        if (workers === q.concurrency) {
+          q.saturated();
+        }
+
+        worker(task.data, onlyOnce(_next(task)));
+      }
+    },
+    length: function length() {
+      return q._tasks.length;
+    },
+    running: function running() {
+      return workers;
+    },
+    idle: function idle() {
+      return q._tasks.length + workers === 0;
+    },
+    pause: function pause() {
+      if (q.paused === true) {
+        return;
+      }
+
+      q.paused = true;
+    },
+    resume: function resume() {
+      if (q.paused === false) {
+        return;
+      }
+
+      q.paused = false; // Need to call q.process once per concurrent
+      // worker to preserve full concurrency after pause
+
+      for (var w = 1; w <= q.concurrency; w++) {
+        q.process();
+      }
+    }
+  };
+
+  function _insert(data, insertAtFront, callback) {
+    if (callback != null && typeof callback !== 'function') {
+      // eslint-disable-line no-eq-null,eqeqeq
+      throw new Error('task callback must be a function');
     }
 
-    var workers = 0;
-    var q = {
-        _tasks: [],
-        concurrency: concurrency,
-        saturated: _noop,
-        unsaturated: _noop,
-        buffer: concurrency / 4,
-        empty: _noop,
-        drain: _noop,
-        error: _noop,
-        started: false,
-        paused: false,
-        push: function push(data, callback) {
-            _insert(data, false, callback);
-        },
-        kill: function kill() {
-            workers = 0;
-            q.drain = _noop;
-            q.started = false;
-            q._tasks = [];
-        },
-        unshift: function unshift(data, callback) {
-            _insert(data, true, callback);
-        },
-        process: function process() {
-            while (!q.paused && workers < q.concurrency && q._tasks.length) {
-                var task = q._tasks.shift();
+    q.started = true;
 
-                if (q._tasks.length === 0) {
-                    q.empty();
-                }
+    if (data == null && q.idle()) {
+      // eslint-disable-line no-eq-null,eqeqeq
+      // call drain immediately if there are no tasks
+      setTimeout(function () {
+        return q.drain();
+      }, 1);
+      return;
+    }
 
-                workers += 1;
-
-                if (workers === q.concurrency) {
-                    q.saturated();
-                }
-
-                worker(task.data, onlyOnce(_next(task)));
-            }
-        },
-        length: function length() {
-            return q._tasks.length;
-        },
-        running: function running() {
-            return workers;
-        },
-        idle: function idle() {
-            return q._tasks.length + workers === 0;
-        },
-        pause: function pause() {
-            if (q.paused === true) {
-                return;
-            }
-
-            q.paused = true;
-        },
-        resume: function resume() {
-            if (q.paused === false) {
-                return;
-            }
-
-            q.paused = false; // Need to call q.process once per concurrent
-            // worker to preserve full concurrency after pause
-
-            for (var w = 1; w <= q.concurrency; w++) {
-                q.process();
-            }
-        }
+    var item = {
+      data: data,
+      callback: typeof callback === 'function' ? callback : _noop
     };
 
-    function _insert(data, insertAtFront, callback) {
-        if (callback != null && typeof callback !== 'function') {
-            // eslint-disable-line no-eq-null,eqeqeq
-            throw new Error('task callback must be a function');
-        }
-
-        q.started = true;
-
-        if (data == null && q.idle()) {
-            // eslint-disable-line no-eq-null,eqeqeq
-            // call drain immediately if there are no tasks
-            setTimeout(function () {
-                return q.drain();
-            }, 1);
-            return;
-        }
-
-        var item = {
-            data: data,
-            callback: typeof callback === 'function' ? callback : _noop
-        };
-
-        if (insertAtFront) {
-            q._tasks.unshift(item);
-        } else {
-            q._tasks.push(item);
-        }
-
-        setTimeout(function () {
-            return q.process();
-        }, 1);
+    if (insertAtFront) {
+      q._tasks.unshift(item);
+    } else {
+      q._tasks.push(item);
     }
 
-    function _next(task) {
-        return function next() {
-            workers -= 1;
-            task.callback.apply(task, arguments);
+    setTimeout(function () {
+      return q.process();
+    }, 1);
+  }
 
-            if (arguments[0] != null) {
-                // eslint-disable-line no-eq-null,eqeqeq
-                q.error(arguments[0], task.data);
-            }
+  function _next(task) {
+    return function next() {
+      workers -= 1;
+      task.callback.apply(task, arguments);
 
-            if (workers <= q.concurrency - q.buffer) {
-                q.unsaturated();
-            }
+      if (arguments[0] != null) {
+        // eslint-disable-line no-eq-null,eqeqeq
+        q.error(arguments[0], task.data);
+      }
 
-            if (q.idle()) {
-                q.drain();
-            }
+      if (workers <= q.concurrency - q.buffer) {
+        q.unsaturated();
+      }
 
-            q.process();
-        };
-    }
+      if (q.idle()) {
+        q.drain();
+      }
 
-    return q;
+      q.process();
+    };
+  }
+
+  return q;
 }
 
 var async = ({
@@ -24922,36 +24922,36 @@ var cache = {};
  */
 
 function caching(resource, next) {
-    var _this = this;
+  var _this = this;
 
-    // if cached, then set data and complete the resource
-    if (cache[resource.url]) {
-        resource.data = cache[resource.url];
-        resource.complete(); // marks resource load complete and stops processing before middlewares
-    } // if not cached, wait for complete and store it in the cache.
-    else {
-        resource.onComplete.once(function () {
-            return cache[_this.url] = _this.data;
-        });
+  // if cached, then set data and complete the resource
+  if (cache[resource.url]) {
+    resource.data = cache[resource.url];
+    resource.complete(); // marks resource load complete and stops processing before middlewares
+  } // if not cached, wait for complete and store it in the cache.
+  else {
+      resource.onComplete.once(function () {
+        return cache[_this.url] = _this.data;
+      });
     }
 
-    next();
+  next();
 }
 
 function _defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-        var descriptor = props[i];
-        descriptor.enumerable = descriptor.enumerable || false;
-        descriptor.configurable = true;
-        if ("value" in descriptor) { descriptor.writable = true; }
-        Object.defineProperty(target, descriptor.key, descriptor);
-    }
+  for (var i = 0; i < props.length; i++) {
+    var descriptor = props[i];
+    descriptor.enumerable = descriptor.enumerable || false;
+    descriptor.configurable = true;
+    if ("value" in descriptor) { descriptor.writable = true; }
+    Object.defineProperty(target, descriptor.key, descriptor);
+  }
 }
 
 function _createClass(Constructor, protoProps, staticProps) {
-    if (protoProps) { _defineProperties(Constructor.prototype, protoProps); }
-    if (staticProps) { _defineProperties(Constructor, staticProps); }
-    return Constructor;
+  if (protoProps) { _defineProperties(Constructor.prototype, protoProps); }
+  if (staticProps) { _defineProperties(Constructor, staticProps); }
+  return Constructor;
 }
 
 var useXdr = !!(window.XDomainRequest && !('withCredentials' in new XMLHttpRequest()));
@@ -24974,994 +24974,994 @@ function _noop$1() {}
 
 
 var Resource$1 =
-    /*#__PURE__*/
-    function () {
-        /**
-         * Sets the load type to be used for a specific extension.
-         *
-         * @static
-         * @param {string} extname - The extension to set the type for, e.g. "png" or "fnt"
-         * @param {Resource.LOAD_TYPE} loadType - The load type to set it to.
-         */
-        Resource.setExtensionLoadType = function setExtensionLoadType(extname, loadType) {
-            setExtMap(Resource._loadTypeMap, extname, loadType);
+/*#__PURE__*/
+function () {
+  /**
+   * Sets the load type to be used for a specific extension.
+   *
+   * @static
+   * @param {string} extname - The extension to set the type for, e.g. "png" or "fnt"
+   * @param {Resource.LOAD_TYPE} loadType - The load type to set it to.
+   */
+  Resource.setExtensionLoadType = function setExtensionLoadType(extname, loadType) {
+    setExtMap(Resource._loadTypeMap, extname, loadType);
+  }
+  /**
+   * Sets the load type to be used for a specific extension.
+   *
+   * @static
+   * @param {string} extname - The extension to set the type for, e.g. "png" or "fnt"
+   * @param {Resource.XHR_RESPONSE_TYPE} xhrType - The xhr type to set it to.
+   */
+  ;
+
+  Resource.setExtensionXhrType = function setExtensionXhrType(extname, xhrType) {
+    setExtMap(Resource._xhrTypeMap, extname, xhrType);
+  }
+  /**
+   * @param {string} name - The name of the resource to load.
+   * @param {string|string[]} url - The url for this resource, for audio/video loads you can pass
+   *      an array of sources.
+   * @param {object} [options] - The options for the load.
+   * @param {string|boolean} [options.crossOrigin] - Is this request cross-origin? Default is to
+   *      determine automatically.
+   * @param {number} [options.timeout=0] - A timeout in milliseconds for the load. If the load takes
+   *      longer than this time it is cancelled and the load is considered a failure. If this value is
+   *      set to `0` then there is no explicit timeout.
+   * @param {Resource.LOAD_TYPE} [options.loadType=Resource.LOAD_TYPE.XHR] - How should this resource
+   *      be loaded?
+   * @param {Resource.XHR_RESPONSE_TYPE} [options.xhrType=Resource.XHR_RESPONSE_TYPE.DEFAULT] - How
+   *      should the data being loaded be interpreted when using XHR?
+   * @param {Resource.IMetadata} [options.metadata] - Extra configuration for middleware and the Resource object.
+   */
+  ;
+
+  function Resource(name, url, options) {
+    if (typeof name !== 'string' || typeof url !== 'string') {
+      throw new Error('Both name and url are required for constructing a resource.');
+    }
+
+    options = options || {};
+    /**
+     * The state flags of this resource.
+     *
+     * @private
+     * @member {number}
+     */
+
+    this._flags = 0; // set data url flag, needs to be set early for some _determineX checks to work.
+
+    this._setFlag(Resource.STATUS_FLAGS.DATA_URL, url.indexOf('data:') === 0);
+    /**
+     * The name of this resource.
+     *
+     * @readonly
+     * @member {string}
+     */
+
+
+    this.name = name;
+    /**
+     * The url used to load this resource.
+     *
+     * @readonly
+     * @member {string}
+     */
+
+    this.url = url;
+    /**
+     * The extension used to load this resource.
+     *
+     * @readonly
+     * @member {string}
+     */
+
+    this.extension = this._getExtension();
+    /**
+     * The data that was loaded by the resource.
+     *
+     * @member {any}
+     */
+
+    this.data = null;
+    /**
+     * Is this request cross-origin? If unset, determined automatically.
+     *
+     * @member {string}
+     */
+
+    this.crossOrigin = options.crossOrigin === true ? 'anonymous' : options.crossOrigin;
+    /**
+     * A timeout in milliseconds for the load. If the load takes longer than this time
+     * it is cancelled and the load is considered a failure. If this value is set to `0`
+     * then there is no explicit timeout.
+     *
+     * @member {number}
+     */
+
+    this.timeout = options.timeout || 0;
+    /**
+     * The method of loading to use for this resource.
+     *
+     * @member {Resource.LOAD_TYPE}
+     */
+
+    this.loadType = options.loadType || this._determineLoadType();
+    /**
+     * The type used to load the resource via XHR. If unset, determined automatically.
+     *
+     * @member {string}
+     */
+
+    this.xhrType = options.xhrType;
+    /**
+     * Extra info for middleware, and controlling specifics about how the resource loads.
+     *
+     * Note that if you pass in a `loadElement`, the Resource class takes ownership of it.
+     * Meaning it will modify it as it sees fit.
+     *
+     * @member {Resource.IMetadata}
+     */
+
+    this.metadata = options.metadata || {};
+    /**
+     * The error that occurred while loading (if any).
+     *
+     * @readonly
+     * @member {Error}
+     */
+
+    this.error = null;
+    /**
+     * The XHR object that was used to load this resource. This is only set
+     * when `loadType` is `Resource.LOAD_TYPE.XHR`.
+     *
+     * @readonly
+     * @member {XMLHttpRequest}
+     */
+
+    this.xhr = null;
+    /**
+     * The child resources this resource owns.
+     *
+     * @readonly
+     * @member {Resource[]}
+     */
+
+    this.children = [];
+    /**
+     * The resource type.
+     *
+     * @readonly
+     * @member {Resource.TYPE}
+     */
+
+    this.type = Resource.TYPE.UNKNOWN;
+    /**
+     * The progress chunk owned by this resource.
+     *
+     * @readonly
+     * @member {number}
+     */
+
+    this.progressChunk = 0;
+    /**
+     * The `dequeue` method that will be used a storage place for the async queue dequeue method
+     * used privately by the loader.
+     *
+     * @private
+     * @member {function}
+     */
+
+    this._dequeue = _noop$1;
+    /**
+     * Used a storage place for the on load binding used privately by the loader.
+     *
+     * @private
+     * @member {function}
+     */
+
+    this._onLoadBinding = null;
+    /**
+     * The timer for element loads to check if they timeout.
+     *
+     * @private
+     * @member {number}
+     */
+
+    this._elementTimer = 0;
+    /**
+     * The `complete` function bound to this resource's context.
+     *
+     * @private
+     * @member {function}
+     */
+
+    this._boundComplete = this.complete.bind(this);
+    /**
+     * The `_onError` function bound to this resource's context.
+     *
+     * @private
+     * @member {function}
+     */
+
+    this._boundOnError = this._onError.bind(this);
+    /**
+     * The `_onProgress` function bound to this resource's context.
+     *
+     * @private
+     * @member {function}
+     */
+
+    this._boundOnProgress = this._onProgress.bind(this);
+    /**
+     * The `_onTimeout` function bound to this resource's context.
+     *
+     * @private
+     * @member {function}
+     */
+
+    this._boundOnTimeout = this._onTimeout.bind(this); // xhr callbacks
+
+    this._boundXhrOnError = this._xhrOnError.bind(this);
+    this._boundXhrOnTimeout = this._xhrOnTimeout.bind(this);
+    this._boundXhrOnAbort = this._xhrOnAbort.bind(this);
+    this._boundXhrOnLoad = this._xhrOnLoad.bind(this);
+    /**
+     * Dispatched when the resource beings to load.
+     *
+     * The callback looks like {@link Resource.OnStartSignal}.
+     *
+     * @member {Signal<Resource.OnStartSignal>}
+     */
+
+    this.onStart = new Signal();
+    /**
+     * Dispatched each time progress of this resource load updates.
+     * Not all resources types and loader systems can support this event
+     * so sometimes it may not be available. If the resource
+     * is being loaded on a modern browser, using XHR, and the remote server
+     * properly sets Content-Length headers, then this will be available.
+     *
+     * The callback looks like {@link Resource.OnProgressSignal}.
+     *
+     * @member {Signal<Resource.OnProgressSignal>}
+     */
+
+    this.onProgress = new Signal();
+    /**
+     * Dispatched once this resource has loaded, if there was an error it will
+     * be in the `error` property.
+     *
+     * The callback looks like {@link Resource.OnCompleteSignal}.
+     *
+     * @member {Signal<Resource.OnCompleteSignal>}
+     */
+
+    this.onComplete = new Signal();
+    /**
+     * Dispatched after this resource has had all the *after* middleware run on it.
+     *
+     * The callback looks like {@link Resource.OnCompleteSignal}.
+     *
+     * @member {Signal<Resource.OnCompleteSignal>}
+     */
+
+    this.onAfterMiddleware = new Signal();
+  }
+  /**
+   * When the resource starts to load.
+   *
+   * @memberof Resource
+   * @callback OnStartSignal
+   * @param {Resource} resource - The resource that the event happened on.
+   */
+
+  /**
+   * When the resource reports loading progress.
+   *
+   * @memberof Resource
+   * @callback OnProgressSignal
+   * @param {Resource} resource - The resource that the event happened on.
+   * @param {number} percentage - The progress of the load in the range [0, 1].
+   */
+
+  /**
+   * When the resource finishes loading.
+   *
+   * @memberof Resource
+   * @callback OnCompleteSignal
+   * @param {Resource} resource - The resource that the event happened on.
+   */
+
+  /**
+   * @memberof Resource
+   * @typedef {object} IMetadata
+   * @property {HTMLImageElement|HTMLAudioElement|HTMLVideoElement} [loadElement=null] - The
+   *      element to use for loading, instead of creating one.
+   * @property {boolean} [skipSource=false] - Skips adding source(s) to the load element. This
+   *      is useful if you want to pass in a `loadElement` that you already added load sources to.
+   * @property {string|string[]} [mimeType] - The mime type to use for the source element
+   *      of a video/audio elment. If the urls are an array, you can pass this as an array as well
+   *      where each index is the mime type to use for the corresponding url index.
+   */
+
+  /**
+   * Stores whether or not this url is a data url.
+   *
+   * @readonly
+   * @member {boolean}
+   */
+
+
+  var _proto = Resource.prototype;
+
+  /**
+   * Marks the resource as complete.
+   *
+   */
+  _proto.complete = function complete() {
+    this._clearEvents();
+
+    this._finish();
+  }
+  /**
+   * Aborts the loading of this resource, with an optional message.
+   *
+   * @param {string} message - The message to use for the error
+   */
+  ;
+
+  _proto.abort = function abort(message) {
+    // abort can be called multiple times, ignore subsequent calls.
+    if (this.error) {
+      return;
+    } // store error
+
+
+    this.error = new Error(message); // clear events before calling aborts
+
+    this._clearEvents(); // abort the actual loading
+
+
+    if (this.xhr) {
+      this.xhr.abort();
+    } else if (this.xdr) {
+      this.xdr.abort();
+    } else if (this.data) {
+      // single source
+      if (this.data.src) {
+        this.data.src = Resource.EMPTY_GIF;
+      } // multi-source
+      else {
+          while (this.data.firstChild) {
+            this.data.removeChild(this.data.firstChild);
+          }
         }
-        /**
-         * Sets the load type to be used for a specific extension.
-         *
-         * @static
-         * @param {string} extname - The extension to set the type for, e.g. "png" or "fnt"
-         * @param {Resource.XHR_RESPONSE_TYPE} xhrType - The xhr type to set it to.
-         */
-        ;
+    } // done now.
 
-        Resource.setExtensionXhrType = function setExtensionXhrType(extname, xhrType) {
-            setExtMap(Resource._xhrTypeMap, extname, xhrType);
+
+    this._finish();
+  }
+  /**
+   * Kicks off loading of this resource. This method is asynchronous.
+   *
+   * @param {Resource.OnCompleteSignal} [cb] - Optional callback to call once the resource is loaded.
+   */
+  ;
+
+  _proto.load = function load(cb) {
+    var _this = this;
+
+    if (this.isLoading) {
+      return;
+    }
+
+    if (this.isComplete) {
+      if (cb) {
+        setTimeout(function () {
+          return cb(_this);
+        }, 1);
+      }
+
+      return;
+    } else if (cb) {
+      this.onComplete.once(cb);
+    }
+
+    this._setFlag(Resource.STATUS_FLAGS.LOADING, true);
+
+    this.onStart.dispatch(this); // if unset, determine the value
+
+    if (this.crossOrigin === false || typeof this.crossOrigin !== 'string') {
+      this.crossOrigin = this._determineCrossOrigin(this.url);
+    }
+
+    switch (this.loadType) {
+      case Resource.LOAD_TYPE.IMAGE:
+        this.type = Resource.TYPE.IMAGE;
+
+        this._loadElement('image');
+
+        break;
+
+      case Resource.LOAD_TYPE.AUDIO:
+        this.type = Resource.TYPE.AUDIO;
+
+        this._loadSourceElement('audio');
+
+        break;
+
+      case Resource.LOAD_TYPE.VIDEO:
+        this.type = Resource.TYPE.VIDEO;
+
+        this._loadSourceElement('video');
+
+        break;
+
+      case Resource.LOAD_TYPE.XHR:
+      /* falls through */
+
+      default:
+        if (useXdr && this.crossOrigin) {
+          this._loadXdr();
+        } else {
+          this._loadXhr();
         }
-        /**
-         * @param {string} name - The name of the resource to load.
-         * @param {string|string[]} url - The url for this resource, for audio/video loads you can pass
-         *      an array of sources.
-         * @param {object} [options] - The options for the load.
-         * @param {string|boolean} [options.crossOrigin] - Is this request cross-origin? Default is to
-         *      determine automatically.
-         * @param {number} [options.timeout=0] - A timeout in milliseconds for the load. If the load takes
-         *      longer than this time it is cancelled and the load is considered a failure. If this value is
-         *      set to `0` then there is no explicit timeout.
-         * @param {Resource.LOAD_TYPE} [options.loadType=Resource.LOAD_TYPE.XHR] - How should this resource
-         *      be loaded?
-         * @param {Resource.XHR_RESPONSE_TYPE} [options.xhrType=Resource.XHR_RESPONSE_TYPE.DEFAULT] - How
-         *      should the data being loaded be interpreted when using XHR?
-         * @param {Resource.IMetadata} [options.metadata] - Extra configuration for middleware and the Resource object.
-         */
-        ;
 
-        function Resource(name, url, options) {
-            if (typeof name !== 'string' || typeof url !== 'string') {
-                throw new Error('Both name and url are required for constructing a resource.');
-            }
+        break;
+    }
+  }
+  /**
+   * Checks if the flag is set.
+   *
+   * @private
+   * @param {number} flag - The flag to check.
+   * @return {boolean} True if the flag is set.
+   */
+  ;
 
-            options = options || {};
-            /**
-             * The state flags of this resource.
-             *
-             * @private
-             * @member {number}
-             */
+  _proto._hasFlag = function _hasFlag(flag) {
+    return (this._flags & flag) !== 0;
+  }
+  /**
+   * (Un)Sets the flag.
+   *
+   * @private
+   * @param {number} flag - The flag to (un)set.
+   * @param {boolean} value - Whether to set or (un)set the flag.
+   */
+  ;
 
-            this._flags = 0; // set data url flag, needs to be set early for some _determineX checks to work.
+  _proto._setFlag = function _setFlag(flag, value) {
+    this._flags = value ? this._flags | flag : this._flags & ~flag;
+  }
+  /**
+   * Clears all the events from the underlying loading source.
+   *
+   * @private
+   */
+  ;
 
-            this._setFlag(Resource.STATUS_FLAGS.DATA_URL, url.indexOf('data:') === 0);
-            /**
-             * The name of this resource.
-             *
-             * @readonly
-             * @member {string}
-             */
+  _proto._clearEvents = function _clearEvents() {
+    clearTimeout(this._elementTimer);
 
+    if (this.data && this.data.removeEventListener) {
+      this.data.removeEventListener('error', this._boundOnError, false);
+      this.data.removeEventListener('load', this._boundComplete, false);
+      this.data.removeEventListener('progress', this._boundOnProgress, false);
+      this.data.removeEventListener('canplaythrough', this._boundComplete, false);
+    }
 
-            this.name = name;
-            /**
-             * The url used to load this resource.
-             *
-             * @readonly
-             * @member {string}
-             */
+    if (this.xhr) {
+      if (this.xhr.removeEventListener) {
+        this.xhr.removeEventListener('error', this._boundXhrOnError, false);
+        this.xhr.removeEventListener('timeout', this._boundXhrOnTimeout, false);
+        this.xhr.removeEventListener('abort', this._boundXhrOnAbort, false);
+        this.xhr.removeEventListener('progress', this._boundOnProgress, false);
+        this.xhr.removeEventListener('load', this._boundXhrOnLoad, false);
+      } else {
+        this.xhr.onerror = null;
+        this.xhr.ontimeout = null;
+        this.xhr.onprogress = null;
+        this.xhr.onload = null;
+      }
+    }
+  }
+  /**
+   * Finalizes the load.
+   *
+   * @private
+   */
+  ;
 
-            this.url = url;
-            /**
-             * The extension used to load this resource.
-             *
-             * @readonly
-             * @member {string}
-             */
+  _proto._finish = function _finish() {
+    if (this.isComplete) {
+      throw new Error('Complete called again for an already completed resource.');
+    }
 
-            this.extension = this._getExtension();
-            /**
-             * The data that was loaded by the resource.
-             *
-             * @member {any}
-             */
+    this._setFlag(Resource.STATUS_FLAGS.COMPLETE, true);
 
-            this.data = null;
-            /**
-             * Is this request cross-origin? If unset, determined automatically.
-             *
-             * @member {string}
-             */
+    this._setFlag(Resource.STATUS_FLAGS.LOADING, false);
 
-            this.crossOrigin = options.crossOrigin === true ? 'anonymous' : options.crossOrigin;
-            /**
-             * A timeout in milliseconds for the load. If the load takes longer than this time
-             * it is cancelled and the load is considered a failure. If this value is set to `0`
-             * then there is no explicit timeout.
-             *
-             * @member {number}
-             */
+    this.onComplete.dispatch(this);
+  }
+  /**
+   * Loads this resources using an element that has a single source,
+   * like an HTMLImageElement.
+   *
+   * @private
+   * @param {string} type - The type of element to use.
+   */
+  ;
 
-            this.timeout = options.timeout || 0;
-            /**
-             * The method of loading to use for this resource.
-             *
-             * @member {Resource.LOAD_TYPE}
-             */
+  _proto._loadElement = function _loadElement(type) {
+    if (this.metadata.loadElement) {
+      this.data = this.metadata.loadElement;
+    } else if (type === 'image' && typeof window.Image !== 'undefined') {
+      this.data = new Image();
+    } else {
+      this.data = document.createElement(type);
+    }
 
-            this.loadType = options.loadType || this._determineLoadType();
-            /**
-             * The type used to load the resource via XHR. If unset, determined automatically.
-             *
-             * @member {string}
-             */
+    if (this.crossOrigin) {
+      this.data.crossOrigin = this.crossOrigin;
+    }
 
-            this.xhrType = options.xhrType;
-            /**
-             * Extra info for middleware, and controlling specifics about how the resource loads.
-             *
-             * Note that if you pass in a `loadElement`, the Resource class takes ownership of it.
-             * Meaning it will modify it as it sees fit.
-             *
-             * @member {Resource.IMetadata}
-             */
+    if (!this.metadata.skipSource) {
+      this.data.src = this.url;
+    }
 
-            this.metadata = options.metadata || {};
-            /**
-             * The error that occurred while loading (if any).
-             *
-             * @readonly
-             * @member {Error}
-             */
+    this.data.addEventListener('error', this._boundOnError, false);
+    this.data.addEventListener('load', this._boundComplete, false);
+    this.data.addEventListener('progress', this._boundOnProgress, false);
 
-            this.error = null;
-            /**
-             * The XHR object that was used to load this resource. This is only set
-             * when `loadType` is `Resource.LOAD_TYPE.XHR`.
-             *
-             * @readonly
-             * @member {XMLHttpRequest}
-             */
+    if (this.timeout) {
+      this._elementTimer = setTimeout(this._boundOnTimeout, this.timeout);
+    }
+  }
+  /**
+   * Loads this resources using an element that has multiple sources,
+   * like an HTMLAudioElement or HTMLVideoElement.
+   *
+   * @private
+   * @param {string} type - The type of element to use.
+   */
+  ;
 
-            this.xhr = null;
-            /**
-             * The child resources this resource owns.
-             *
-             * @readonly
-             * @member {Resource[]}
-             */
+  _proto._loadSourceElement = function _loadSourceElement(type) {
+    if (this.metadata.loadElement) {
+      this.data = this.metadata.loadElement;
+    } else if (type === 'audio' && typeof window.Audio !== 'undefined') {
+      this.data = new Audio();
+    } else {
+      this.data = document.createElement(type);
+    }
 
-            this.children = [];
-            /**
-             * The resource type.
-             *
-             * @readonly
-             * @member {Resource.TYPE}
-             */
+    if (this.data === null) {
+      this.abort("Unsupported element: " + type);
+      return;
+    }
 
-            this.type = Resource.TYPE.UNKNOWN;
-            /**
-             * The progress chunk owned by this resource.
-             *
-             * @readonly
-             * @member {number}
-             */
+    if (this.crossOrigin) {
+      this.data.crossOrigin = this.crossOrigin;
+    }
 
-            this.progressChunk = 0;
-            /**
-             * The `dequeue` method that will be used a storage place for the async queue dequeue method
-             * used privately by the loader.
-             *
-             * @private
-             * @member {function}
-             */
+    if (!this.metadata.skipSource) {
+      // support for CocoonJS Canvas+ runtime, lacks document.createElement('source')
+      if (navigator.isCocoonJS) {
+        this.data.src = Array.isArray(this.url) ? this.url[0] : this.url;
+      } else if (Array.isArray(this.url)) {
+        var mimeTypes = this.metadata.mimeType;
 
-            this._dequeue = _noop$1;
-            /**
-             * Used a storage place for the on load binding used privately by the loader.
-             *
-             * @private
-             * @member {function}
-             */
-
-            this._onLoadBinding = null;
-            /**
-             * The timer for element loads to check if they timeout.
-             *
-             * @private
-             * @member {number}
-             */
-
-            this._elementTimer = 0;
-            /**
-             * The `complete` function bound to this resource's context.
-             *
-             * @private
-             * @member {function}
-             */
-
-            this._boundComplete = this.complete.bind(this);
-            /**
-             * The `_onError` function bound to this resource's context.
-             *
-             * @private
-             * @member {function}
-             */
-
-            this._boundOnError = this._onError.bind(this);
-            /**
-             * The `_onProgress` function bound to this resource's context.
-             *
-             * @private
-             * @member {function}
-             */
-
-            this._boundOnProgress = this._onProgress.bind(this);
-            /**
-             * The `_onTimeout` function bound to this resource's context.
-             *
-             * @private
-             * @member {function}
-             */
-
-            this._boundOnTimeout = this._onTimeout.bind(this); // xhr callbacks
-
-            this._boundXhrOnError = this._xhrOnError.bind(this);
-            this._boundXhrOnTimeout = this._xhrOnTimeout.bind(this);
-            this._boundXhrOnAbort = this._xhrOnAbort.bind(this);
-            this._boundXhrOnLoad = this._xhrOnLoad.bind(this);
-            /**
-             * Dispatched when the resource beings to load.
-             *
-             * The callback looks like {@link Resource.OnStartSignal}.
-             *
-             * @member {Signal<Resource.OnStartSignal>}
-             */
-
-            this.onStart = new Signal();
-            /**
-             * Dispatched each time progress of this resource load updates.
-             * Not all resources types and loader systems can support this event
-             * so sometimes it may not be available. If the resource
-             * is being loaded on a modern browser, using XHR, and the remote server
-             * properly sets Content-Length headers, then this will be available.
-             *
-             * The callback looks like {@link Resource.OnProgressSignal}.
-             *
-             * @member {Signal<Resource.OnProgressSignal>}
-             */
-
-            this.onProgress = new Signal();
-            /**
-             * Dispatched once this resource has loaded, if there was an error it will
-             * be in the `error` property.
-             *
-             * The callback looks like {@link Resource.OnCompleteSignal}.
-             *
-             * @member {Signal<Resource.OnCompleteSignal>}
-             */
-
-            this.onComplete = new Signal();
-            /**
-             * Dispatched after this resource has had all the *after* middleware run on it.
-             *
-             * The callback looks like {@link Resource.OnCompleteSignal}.
-             *
-             * @member {Signal<Resource.OnCompleteSignal>}
-             */
-
-            this.onAfterMiddleware = new Signal();
+        for (var i = 0; i < this.url.length; ++i) {
+          this.data.appendChild(this._createSource(type, this.url[i], Array.isArray(mimeTypes) ? mimeTypes[i] : mimeTypes));
         }
-        /**
-         * When the resource starts to load.
-         *
-         * @memberof Resource
-         * @callback OnStartSignal
-         * @param {Resource} resource - The resource that the event happened on.
-         */
+      } else {
+        var _mimeTypes = this.metadata.mimeType;
+        this.data.appendChild(this._createSource(type, this.url, Array.isArray(_mimeTypes) ? _mimeTypes[0] : _mimeTypes));
+      }
+    }
 
-        /**
-         * When the resource reports loading progress.
-         *
-         * @memberof Resource
-         * @callback OnProgressSignal
-         * @param {Resource} resource - The resource that the event happened on.
-         * @param {number} percentage - The progress of the load in the range [0, 1].
-         */
+    this.data.addEventListener('error', this._boundOnError, false);
+    this.data.addEventListener('load', this._boundComplete, false);
+    this.data.addEventListener('progress', this._boundOnProgress, false);
+    this.data.addEventListener('canplaythrough', this._boundComplete, false);
+    this.data.load();
 
-        /**
-         * When the resource finishes loading.
-         *
-         * @memberof Resource
-         * @callback OnCompleteSignal
-         * @param {Resource} resource - The resource that the event happened on.
-         */
+    if (this.timeout) {
+      this._elementTimer = setTimeout(this._boundOnTimeout, this.timeout);
+    }
+  }
+  /**
+   * Loads this resources using an XMLHttpRequest.
+   *
+   * @private
+   */
+  ;
 
-        /**
-         * @memberof Resource
-         * @typedef {object} IMetadata
-         * @property {HTMLImageElement|HTMLAudioElement|HTMLVideoElement} [loadElement=null] - The
-         *      element to use for loading, instead of creating one.
-         * @property {boolean} [skipSource=false] - Skips adding source(s) to the load element. This
-         *      is useful if you want to pass in a `loadElement` that you already added load sources to.
-         * @property {string|string[]} [mimeType] - The mime type to use for the source element
-         *      of a video/audio elment. If the urls are an array, you can pass this as an array as well
-         *      where each index is the mime type to use for the corresponding url index.
-         */
+  _proto._loadXhr = function _loadXhr() {
+    // if unset, determine the value
+    if (typeof this.xhrType !== 'string') {
+      this.xhrType = this._determineXhrType();
+    }
 
-        /**
-         * Stores whether or not this url is a data url.
-         *
-         * @readonly
-         * @member {boolean}
-         */
+    var xhr = this.xhr = new XMLHttpRequest(); // set the request type and url
+
+    xhr.open('GET', this.url, true);
+    xhr.timeout = this.timeout; // load json as text and parse it ourselves. We do this because some browsers
+    // *cough* safari *cough* can't deal with it.
+
+    if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON || this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT) {
+      xhr.responseType = Resource.XHR_RESPONSE_TYPE.TEXT;
+    } else {
+      xhr.responseType = this.xhrType;
+    }
+
+    xhr.addEventListener('error', this._boundXhrOnError, false);
+    xhr.addEventListener('timeout', this._boundXhrOnTimeout, false);
+    xhr.addEventListener('abort', this._boundXhrOnAbort, false);
+    xhr.addEventListener('progress', this._boundOnProgress, false);
+    xhr.addEventListener('load', this._boundXhrOnLoad, false);
+    xhr.send();
+  }
+  /**
+   * Loads this resources using an XDomainRequest. This is here because we need to support IE9 (gross).
+   *
+   * @private
+   */
+  ;
+
+  _proto._loadXdr = function _loadXdr() {
+    // if unset, determine the value
+    if (typeof this.xhrType !== 'string') {
+      this.xhrType = this._determineXhrType();
+    }
+
+    var xdr = this.xhr = new XDomainRequest(); // eslint-disable-line no-undef
+    // XDomainRequest has a few quirks. Occasionally it will abort requests
+    // A way to avoid this is to make sure ALL callbacks are set even if not used
+    // More info here: http://stackoverflow.com/questions/15786966/xdomainrequest-aborts-post-on-ie-9
+
+    xdr.timeout = this.timeout || 5000; // XDR needs a timeout value or it breaks in IE9
+
+    xdr.onerror = this._boundXhrOnError;
+    xdr.ontimeout = this._boundXhrOnTimeout;
+    xdr.onprogress = this._boundOnProgress;
+    xdr.onload = this._boundXhrOnLoad;
+    xdr.open('GET', this.url, true); // Note: The xdr.send() call is wrapped in a timeout to prevent an
+    // issue with the interface where some requests are lost if multiple
+    // XDomainRequests are being sent at the same time.
+    // Some info here: https://github.com/photonstorm/phaser/issues/1248
+
+    setTimeout(function () {
+      return xdr.send();
+    }, 1);
+  }
+  /**
+   * Creates a source used in loading via an element.
+   *
+   * @private
+   * @param {string} type - The element type (video or audio).
+   * @param {string} url - The source URL to load from.
+   * @param {string} [mime] - The mime type of the video
+   * @return {HTMLSourceElement} The source element.
+   */
+  ;
+
+  _proto._createSource = function _createSource(type, url, mime) {
+    if (!mime) {
+      mime = type + "/" + this._getExtension(url);
+    }
+
+    var source = document.createElement('source');
+    source.src = url;
+    source.type = mime;
+    return source;
+  }
+  /**
+   * Called if a load errors out.
+   *
+   * @param {Event} event - The error event from the element that emits it.
+   * @private
+   */
+  ;
+
+  _proto._onError = function _onError(event) {
+    this.abort("Failed to load element using: " + event.target.nodeName);
+  }
+  /**
+   * Called if a load progress event fires for an element or xhr/xdr.
+   *
+   * @private
+   * @param {XMLHttpRequestProgressEvent|Event} event - Progress event.
+   */
+  ;
+
+  _proto._onProgress = function _onProgress(event) {
+    if (event && event.lengthComputable) {
+      this.onProgress.dispatch(this, event.loaded / event.total);
+    }
+  }
+  /**
+   * Called if a timeout event fires for an element.
+   *
+   * @private
+   */
+  ;
+
+  _proto._onTimeout = function _onTimeout() {
+    this.abort("Load timed out.");
+  }
+  /**
+   * Called if an error event fires for xhr/xdr.
+   *
+   * @private
+   */
+  ;
+
+  _proto._xhrOnError = function _xhrOnError() {
+    var xhr = this.xhr;
+    this.abort(reqType(xhr) + " Request failed. Status: " + xhr.status + ", text: \"" + xhr.statusText + "\"");
+  }
+  /**
+   * Called if an error event fires for xhr/xdr.
+   *
+   * @private
+   */
+  ;
+
+  _proto._xhrOnTimeout = function _xhrOnTimeout() {
+    var xhr = this.xhr;
+    this.abort(reqType(xhr) + " Request timed out.");
+  }
+  /**
+   * Called if an abort event fires for xhr/xdr.
+   *
+   * @private
+   */
+  ;
+
+  _proto._xhrOnAbort = function _xhrOnAbort() {
+    var xhr = this.xhr;
+    this.abort(reqType(xhr) + " Request was aborted by the user.");
+  }
+  /**
+   * Called when data successfully loads from an xhr/xdr request.
+   *
+   * @private
+   * @param {XMLHttpRequestLoadEvent|Event} event - Load event
+   */
+  ;
+
+  _proto._xhrOnLoad = function _xhrOnLoad() {
+    var xhr = this.xhr;
+    var text = '';
+    var status = typeof xhr.status === 'undefined' ? STATUS_OK : xhr.status; // XDR has no `.status`, assume 200.
+    // responseText is accessible only if responseType is '' or 'text' and on older browsers
+
+    if (xhr.responseType === '' || xhr.responseType === 'text' || typeof xhr.responseType === 'undefined') {
+      text = xhr.responseText;
+    } // status can be 0 when using the `file://` protocol so we also check if a response is set.
+    // If it has a response, we assume 200; otherwise a 0 status code with no contents is an aborted request.
 
 
-        var _proto = Resource.prototype;
+    if (status === STATUS_NONE && (text.length > 0 || xhr.responseType === Resource.XHR_RESPONSE_TYPE.BUFFER)) {
+      status = STATUS_OK;
+    } // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
+    else if (status === STATUS_IE_BUG_EMPTY) {
+        status = STATUS_EMPTY;
+      }
 
-        /**
-         * Marks the resource as complete.
-         *
-         */
-        _proto.complete = function complete() {
-            this._clearEvents();
+    var statusType = status / 100 | 0;
 
-            this._finish();
-        }
-        /**
-         * Aborts the loading of this resource, with an optional message.
-         *
-         * @param {string} message - The message to use for the error
-         */
-        ;
+    if (statusType === STATUS_TYPE_OK) {
+      // if text, just return it
+      if (this.xhrType === Resource.XHR_RESPONSE_TYPE.TEXT) {
+        this.data = text;
+        this.type = Resource.TYPE.TEXT;
+      } // if json, parse into json object
+      else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON) {
+          try {
+            this.data = JSON.parse(text);
+            this.type = Resource.TYPE.JSON;
+          } catch (e) {
+            this.abort("Error trying to parse loaded json: " + e);
+            return;
+          }
+        } // if xml, parse into an xml document or div element
+        else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT) {
+            try {
+              if (window.DOMParser) {
+                var domparser = new DOMParser();
+                this.data = domparser.parseFromString(text, 'text/xml');
+              } else {
+                var div = document.createElement('div');
+                div.innerHTML = text;
+                this.data = div;
+              }
 
-        _proto.abort = function abort(message) {
-            // abort can be called multiple times, ignore subsequent calls.
-            if (this.error) {
-                return;
-            } // store error
-
-
-            this.error = new Error(message); // clear events before calling aborts
-
-            this._clearEvents(); // abort the actual loading
-
-
-            if (this.xhr) {
-                this.xhr.abort();
-            } else if (this.xdr) {
-                this.xdr.abort();
-            } else if (this.data) {
-                // single source
-                if (this.data.src) {
-                    this.data.src = Resource.EMPTY_GIF;
-                } // multi-source
-                else {
-                    while (this.data.firstChild) {
-                        this.data.removeChild(this.data.firstChild);
-                    }
-                }
-            } // done now.
-
-
-            this._finish();
-        }
-        /**
-         * Kicks off loading of this resource. This method is asynchronous.
-         *
-         * @param {Resource.OnCompleteSignal} [cb] - Optional callback to call once the resource is loaded.
-         */
-        ;
-
-        _proto.load = function load(cb) {
-            var _this = this;
-
-            if (this.isLoading) {
-                return;
+              this.type = Resource.TYPE.XML;
+            } catch (e$1) {
+              this.abort("Error trying to parse loaded xml: " + e$1);
+              return;
             }
-
-            if (this.isComplete) {
-                if (cb) {
-                    setTimeout(function () {
-                        return cb(_this);
-                    }, 1);
-                }
-
-                return;
-            } else if (cb) {
-                this.onComplete.once(cb);
+          } // other types just return the response
+          else {
+              this.data = xhr.response || text;
             }
-
-            this._setFlag(Resource.STATUS_FLAGS.LOADING, true);
-
-            this.onStart.dispatch(this); // if unset, determine the value
-
-            if (this.crossOrigin === false || typeof this.crossOrigin !== 'string') {
-                this.crossOrigin = this._determineCrossOrigin(this.url);
-            }
-
-            switch (this.loadType) {
-                case Resource.LOAD_TYPE.IMAGE:
-                    this.type = Resource.TYPE.IMAGE;
-
-                    this._loadElement('image');
-
-                    break;
-
-                case Resource.LOAD_TYPE.AUDIO:
-                    this.type = Resource.TYPE.AUDIO;
-
-                    this._loadSourceElement('audio');
-
-                    break;
-
-                case Resource.LOAD_TYPE.VIDEO:
-                    this.type = Resource.TYPE.VIDEO;
-
-                    this._loadSourceElement('video');
-
-                    break;
-
-                case Resource.LOAD_TYPE.XHR:
-                /* falls through */
-
-                default:
-                    if (useXdr && this.crossOrigin) {
-                        this._loadXdr();
-                    } else {
-                        this._loadXhr();
-                    }
-
-                    break;
-            }
-        }
-        /**
-         * Checks if the flag is set.
-         *
-         * @private
-         * @param {number} flag - The flag to check.
-         * @return {boolean} True if the flag is set.
-         */
-        ;
-
-        _proto._hasFlag = function _hasFlag(flag) {
-            return (this._flags & flag) !== 0;
-        }
-        /**
-         * (Un)Sets the flag.
-         *
-         * @private
-         * @param {number} flag - The flag to (un)set.
-         * @param {boolean} value - Whether to set or (un)set the flag.
-         */
-        ;
-
-        _proto._setFlag = function _setFlag(flag, value) {
-            this._flags = value ? this._flags | flag : this._flags & ~flag;
-        }
-        /**
-         * Clears all the events from the underlying loading source.
-         *
-         * @private
-         */
-        ;
-
-        _proto._clearEvents = function _clearEvents() {
-            clearTimeout(this._elementTimer);
-
-            if (this.data && this.data.removeEventListener) {
-                this.data.removeEventListener('error', this._boundOnError, false);
-                this.data.removeEventListener('load', this._boundComplete, false);
-                this.data.removeEventListener('progress', this._boundOnProgress, false);
-                this.data.removeEventListener('canplaythrough', this._boundComplete, false);
-            }
-
-            if (this.xhr) {
-                if (this.xhr.removeEventListener) {
-                    this.xhr.removeEventListener('error', this._boundXhrOnError, false);
-                    this.xhr.removeEventListener('timeout', this._boundXhrOnTimeout, false);
-                    this.xhr.removeEventListener('abort', this._boundXhrOnAbort, false);
-                    this.xhr.removeEventListener('progress', this._boundOnProgress, false);
-                    this.xhr.removeEventListener('load', this._boundXhrOnLoad, false);
-                } else {
-                    this.xhr.onerror = null;
-                    this.xhr.ontimeout = null;
-                    this.xhr.onprogress = null;
-                    this.xhr.onload = null;
-                }
-            }
-        }
-        /**
-         * Finalizes the load.
-         *
-         * @private
-         */
-        ;
-
-        _proto._finish = function _finish() {
-            if (this.isComplete) {
-                throw new Error('Complete called again for an already completed resource.');
-            }
-
-            this._setFlag(Resource.STATUS_FLAGS.COMPLETE, true);
-
-            this._setFlag(Resource.STATUS_FLAGS.LOADING, false);
-
-            this.onComplete.dispatch(this);
-        }
-        /**
-         * Loads this resources using an element that has a single source,
-         * like an HTMLImageElement.
-         *
-         * @private
-         * @param {string} type - The type of element to use.
-         */
-        ;
-
-        _proto._loadElement = function _loadElement(type) {
-            if (this.metadata.loadElement) {
-                this.data = this.metadata.loadElement;
-            } else if (type === 'image' && typeof window.Image !== 'undefined') {
-                this.data = new Image();
-            } else {
-                this.data = document.createElement(type);
-            }
-
-            if (this.crossOrigin) {
-                this.data.crossOrigin = this.crossOrigin;
-            }
-
-            if (!this.metadata.skipSource) {
-                this.data.src = this.url;
-            }
-
-            this.data.addEventListener('error', this._boundOnError, false);
-            this.data.addEventListener('load', this._boundComplete, false);
-            this.data.addEventListener('progress', this._boundOnProgress, false);
-
-            if (this.timeout) {
-                this._elementTimer = setTimeout(this._boundOnTimeout, this.timeout);
-            }
-        }
-        /**
-         * Loads this resources using an element that has multiple sources,
-         * like an HTMLAudioElement or HTMLVideoElement.
-         *
-         * @private
-         * @param {string} type - The type of element to use.
-         */
-        ;
-
-        _proto._loadSourceElement = function _loadSourceElement(type) {
-            if (this.metadata.loadElement) {
-                this.data = this.metadata.loadElement;
-            } else if (type === 'audio' && typeof window.Audio !== 'undefined') {
-                this.data = new Audio();
-            } else {
-                this.data = document.createElement(type);
-            }
-
-            if (this.data === null) {
-                this.abort("Unsupported element: " + type);
-                return;
-            }
-
-            if (this.crossOrigin) {
-                this.data.crossOrigin = this.crossOrigin;
-            }
-
-            if (!this.metadata.skipSource) {
-                // support for CocoonJS Canvas+ runtime, lacks document.createElement('source')
-                if (navigator.isCocoonJS) {
-                    this.data.src = Array.isArray(this.url) ? this.url[0] : this.url;
-                } else if (Array.isArray(this.url)) {
-                    var mimeTypes = this.metadata.mimeType;
-
-                    for (var i = 0; i < this.url.length; ++i) {
-                        this.data.appendChild(this._createSource(type, this.url[i], Array.isArray(mimeTypes) ? mimeTypes[i] : mimeTypes));
-                    }
-                } else {
-                    var _mimeTypes = this.metadata.mimeType;
-                    this.data.appendChild(this._createSource(type, this.url, Array.isArray(_mimeTypes) ? _mimeTypes[0] : _mimeTypes));
-                }
-            }
-
-            this.data.addEventListener('error', this._boundOnError, false);
-            this.data.addEventListener('load', this._boundComplete, false);
-            this.data.addEventListener('progress', this._boundOnProgress, false);
-            this.data.addEventListener('canplaythrough', this._boundComplete, false);
-            this.data.load();
-
-            if (this.timeout) {
-                this._elementTimer = setTimeout(this._boundOnTimeout, this.timeout);
-            }
-        }
-        /**
-         * Loads this resources using an XMLHttpRequest.
-         *
-         * @private
-         */
-        ;
-
-        _proto._loadXhr = function _loadXhr() {
-            // if unset, determine the value
-            if (typeof this.xhrType !== 'string') {
-                this.xhrType = this._determineXhrType();
-            }
-
-            var xhr = this.xhr = new XMLHttpRequest(); // set the request type and url
-
-            xhr.open('GET', this.url, true);
-            xhr.timeout = this.timeout; // load json as text and parse it ourselves. We do this because some browsers
-            // *cough* safari *cough* can't deal with it.
-
-            if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON || this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT) {
-                xhr.responseType = Resource.XHR_RESPONSE_TYPE.TEXT;
-            } else {
-                xhr.responseType = this.xhrType;
-            }
-
-            xhr.addEventListener('error', this._boundXhrOnError, false);
-            xhr.addEventListener('timeout', this._boundXhrOnTimeout, false);
-            xhr.addEventListener('abort', this._boundXhrOnAbort, false);
-            xhr.addEventListener('progress', this._boundOnProgress, false);
-            xhr.addEventListener('load', this._boundXhrOnLoad, false);
-            xhr.send();
-        }
-        /**
-         * Loads this resources using an XDomainRequest. This is here because we need to support IE9 (gross).
-         *
-         * @private
-         */
-        ;
-
-        _proto._loadXdr = function _loadXdr() {
-            // if unset, determine the value
-            if (typeof this.xhrType !== 'string') {
-                this.xhrType = this._determineXhrType();
-            }
-
-            var xdr = this.xhr = new XDomainRequest(); // eslint-disable-line no-undef
-            // XDomainRequest has a few quirks. Occasionally it will abort requests
-            // A way to avoid this is to make sure ALL callbacks are set even if not used
-            // More info here: http://stackoverflow.com/questions/15786966/xdomainrequest-aborts-post-on-ie-9
-
-            xdr.timeout = this.timeout || 5000; // XDR needs a timeout value or it breaks in IE9
-
-            xdr.onerror = this._boundXhrOnError;
-            xdr.ontimeout = this._boundXhrOnTimeout;
-            xdr.onprogress = this._boundOnProgress;
-            xdr.onload = this._boundXhrOnLoad;
-            xdr.open('GET', this.url, true); // Note: The xdr.send() call is wrapped in a timeout to prevent an
-            // issue with the interface where some requests are lost if multiple
-            // XDomainRequests are being sent at the same time.
-            // Some info here: https://github.com/photonstorm/phaser/issues/1248
-
-            setTimeout(function () {
-                return xdr.send();
-            }, 1);
-        }
-        /**
-         * Creates a source used in loading via an element.
-         *
-         * @private
-         * @param {string} type - The element type (video or audio).
-         * @param {string} url - The source URL to load from.
-         * @param {string} [mime] - The mime type of the video
-         * @return {HTMLSourceElement} The source element.
-         */
-        ;
-
-        _proto._createSource = function _createSource(type, url, mime) {
-            if (!mime) {
-                mime = type + "/" + this._getExtension(url);
-            }
-
-            var source = document.createElement('source');
-            source.src = url;
-            source.type = mime;
-            return source;
-        }
-        /**
-         * Called if a load errors out.
-         *
-         * @param {Event} event - The error event from the element that emits it.
-         * @private
-         */
-        ;
-
-        _proto._onError = function _onError(event) {
-            this.abort("Failed to load element using: " + event.target.nodeName);
-        }
-        /**
-         * Called if a load progress event fires for an element or xhr/xdr.
-         *
-         * @private
-         * @param {XMLHttpRequestProgressEvent|Event} event - Progress event.
-         */
-        ;
-
-        _proto._onProgress = function _onProgress(event) {
-            if (event && event.lengthComputable) {
-                this.onProgress.dispatch(this, event.loaded / event.total);
-            }
-        }
-        /**
-         * Called if a timeout event fires for an element.
-         *
-         * @private
-         */
-        ;
-
-        _proto._onTimeout = function _onTimeout() {
-            this.abort("Load timed out.");
-        }
-        /**
-         * Called if an error event fires for xhr/xdr.
-         *
-         * @private
-         */
-        ;
-
-        _proto._xhrOnError = function _xhrOnError() {
-            var xhr = this.xhr;
-            this.abort(reqType(xhr) + " Request failed. Status: " + xhr.status + ", text: \"" + xhr.statusText + "\"");
-        }
-        /**
-         * Called if an error event fires for xhr/xdr.
-         *
-         * @private
-         */
-        ;
-
-        _proto._xhrOnTimeout = function _xhrOnTimeout() {
-            var xhr = this.xhr;
-            this.abort(reqType(xhr) + " Request timed out.");
-        }
-        /**
-         * Called if an abort event fires for xhr/xdr.
-         *
-         * @private
-         */
-        ;
-
-        _proto._xhrOnAbort = function _xhrOnAbort() {
-            var xhr = this.xhr;
-            this.abort(reqType(xhr) + " Request was aborted by the user.");
-        }
-        /**
-         * Called when data successfully loads from an xhr/xdr request.
-         *
-         * @private
-         * @param {XMLHttpRequestLoadEvent|Event} event - Load event
-         */
-        ;
-
-        _proto._xhrOnLoad = function _xhrOnLoad() {
-            var xhr = this.xhr;
-            var text = '';
-            var status = typeof xhr.status === 'undefined' ? STATUS_OK : xhr.status; // XDR has no `.status`, assume 200.
-            // responseText is accessible only if responseType is '' or 'text' and on older browsers
-
-            if (xhr.responseType === '' || xhr.responseType === 'text' || typeof xhr.responseType === 'undefined') {
-                text = xhr.responseText;
-            } // status can be 0 when using the `file://` protocol so we also check if a response is set.
-            // If it has a response, we assume 200; otherwise a 0 status code with no contents is an aborted request.
-
-
-            if (status === STATUS_NONE && (text.length > 0 || xhr.responseType === Resource.XHR_RESPONSE_TYPE.BUFFER)) {
-                status = STATUS_OK;
-            } // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
-            else if (status === STATUS_IE_BUG_EMPTY) {
-                status = STATUS_EMPTY;
-            }
-
-            var statusType = status / 100 | 0;
-
-            if (statusType === STATUS_TYPE_OK) {
-                // if text, just return it
-                if (this.xhrType === Resource.XHR_RESPONSE_TYPE.TEXT) {
-                    this.data = text;
-                    this.type = Resource.TYPE.TEXT;
-                } // if json, parse into json object
-                else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON) {
-                    try {
-                        this.data = JSON.parse(text);
-                        this.type = Resource.TYPE.JSON;
-                    } catch (e) {
-                        this.abort("Error trying to parse loaded json: " + e);
-                        return;
-                    }
-                } // if xml, parse into an xml document or div element
-                else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT) {
-                    try {
-                        if (window.DOMParser) {
-                            var domparser = new DOMParser();
-                            this.data = domparser.parseFromString(text, 'text/xml');
-                        } else {
-                            var div = document.createElement('div');
-                            div.innerHTML = text;
-                            this.data = div;
-                        }
-
-                        this.type = Resource.TYPE.XML;
-                    } catch (e$1) {
-                        this.abort("Error trying to parse loaded xml: " + e$1);
-                        return;
-                    }
-                } // other types just return the response
-                else {
-                    this.data = xhr.response || text;
-                }
-            } else {
-                this.abort("[" + xhr.status + "] " + xhr.statusText + ": " + xhr.responseURL);
-                return;
-            }
-
-            this.complete();
-        }
-        /**
-         * Sets the `crossOrigin` property for this resource based on if the url
-         * for this resource is cross-origin. If crossOrigin was manually set, this
-         * function does nothing.
-         *
-         * @private
-         * @param {string} url - The url to test.
-         * @param {object} [loc=window.location] - The location object to test against.
-         * @return {string} The crossOrigin value to use (or empty string for none).
-         */
-        ;
-
-        _proto._determineCrossOrigin = function _determineCrossOrigin(url, loc) {
-            // data: and javascript: urls are considered same-origin
-            if (url.indexOf('data:') === 0) {
-                return '';
-            } // A sandboxed iframe without the 'allow-same-origin' attribute will have a special
-            // origin designed not to match window.location.origin, and will always require
-            // crossOrigin requests regardless of whether the location matches.
-
-
-            if (window.origin !== window.location.origin) {
-                return 'anonymous';
-            } // default is window.location
-
-
-            loc = loc || window.location;
-
-            if (!tempAnchor$1) {
-                tempAnchor$1 = document.createElement('a');
-            } // let the browser determine the full href for the url of this resource and then
-            // parse with the node url lib, we can't use the properties of the anchor element
-            // because they don't work in IE9 :(
-
-
-            tempAnchor$1.href = url;
-            url = parseUri(tempAnchor$1.href, {
-                strictMode: true
-            });
-            var samePort = !url.port && loc.port === '' || url.port === loc.port;
-            var protocol = url.protocol ? url.protocol + ":" : ''; // if cross origin
-
-            if (url.host !== loc.hostname || !samePort || protocol !== loc.protocol) {
-                return 'anonymous';
-            }
-
-            return '';
-        }
-        /**
-         * Determines the responseType of an XHR request based on the extension of the
-         * resource being loaded.
-         *
-         * @private
-         * @return {Resource.XHR_RESPONSE_TYPE} The responseType to use.
-         */
-        ;
-
-        _proto._determineXhrType = function _determineXhrType() {
-            return Resource._xhrTypeMap[this.extension] || Resource.XHR_RESPONSE_TYPE.TEXT;
-        }
-        /**
-         * Determines the loadType of a resource based on the extension of the
-         * resource being loaded.
-         *
-         * @private
-         * @return {Resource.LOAD_TYPE} The loadType to use.
-         */
-        ;
-
-        _proto._determineLoadType = function _determineLoadType() {
-            return Resource._loadTypeMap[this.extension] || Resource.LOAD_TYPE.XHR;
-        }
-        /**
-         * Extracts the extension (sans '.') of the file being loaded by the resource.
-         *
-         * @private
-         * @return {string} The extension.
-         */
-        ;
-
-        _proto._getExtension = function _getExtension() {
-            var url = this.url;
-            var ext = '';
-
-            if (this.isDataUrl) {
-                var slashIndex = url.indexOf('/');
-                ext = url.substring(slashIndex + 1, url.indexOf(';', slashIndex));
-            } else {
-                var queryStart = url.indexOf('?');
-                var hashStart = url.indexOf('#');
-                var index = Math.min(queryStart > -1 ? queryStart : url.length, hashStart > -1 ? hashStart : url.length);
-                url = url.substring(0, index);
-                ext = url.substring(url.lastIndexOf('.') + 1);
-            }
-
-            return ext.toLowerCase();
-        }
-        /**
-         * Determines the mime type of an XHR request based on the responseType of
-         * resource being loaded.
-         *
-         * @private
-         * @param {Resource.XHR_RESPONSE_TYPE} type - The type to get a mime type for.
-         * @return {string} The mime type to use.
-         */
-        ;
-
-        _proto._getMimeFromXhrType = function _getMimeFromXhrType(type) {
-            switch (type) {
-                case Resource.XHR_RESPONSE_TYPE.BUFFER:
-                    return 'application/octet-binary';
-
-                case Resource.XHR_RESPONSE_TYPE.BLOB:
-                    return 'application/blob';
-
-                case Resource.XHR_RESPONSE_TYPE.DOCUMENT:
-                    return 'application/xml';
-
-                case Resource.XHR_RESPONSE_TYPE.JSON:
-                    return 'application/json';
-
-                case Resource.XHR_RESPONSE_TYPE.DEFAULT:
-                case Resource.XHR_RESPONSE_TYPE.TEXT:
-                /* falls through */
-
-                default:
-                    return 'text/plain';
-            }
-        };
-
-        _createClass(Resource, [{
-            key: "isDataUrl",
-            get: function get() {
-                return this._hasFlag(Resource.STATUS_FLAGS.DATA_URL);
-            }
-            /**
-             * Describes if this resource has finished loading. Is true when the resource has completely
-             * loaded.
-             *
-             * @readonly
-             * @member {boolean}
-             */
-
-        }, {
-            key: "isComplete",
-            get: function get() {
-                return this._hasFlag(Resource.STATUS_FLAGS.COMPLETE);
-            }
-            /**
-             * Describes if this resource is currently loading. Is true when the resource starts loading,
-             * and is false again when complete.
-             *
-             * @readonly
-             * @member {boolean}
-             */
-
-        }, {
-            key: "isLoading",
-            get: function get() {
-                return this._hasFlag(Resource.STATUS_FLAGS.LOADING);
-            }
-        }]);
-
-        return Resource;
-    }();
+    } else {
+      this.abort("[" + xhr.status + "] " + xhr.statusText + ": " + xhr.responseURL);
+      return;
+    }
+
+    this.complete();
+  }
+  /**
+   * Sets the `crossOrigin` property for this resource based on if the url
+   * for this resource is cross-origin. If crossOrigin was manually set, this
+   * function does nothing.
+   *
+   * @private
+   * @param {string} url - The url to test.
+   * @param {object} [loc=window.location] - The location object to test against.
+   * @return {string} The crossOrigin value to use (or empty string for none).
+   */
+  ;
+
+  _proto._determineCrossOrigin = function _determineCrossOrigin(url, loc) {
+    // data: and javascript: urls are considered same-origin
+    if (url.indexOf('data:') === 0) {
+      return '';
+    } // A sandboxed iframe without the 'allow-same-origin' attribute will have a special
+    // origin designed not to match window.location.origin, and will always require
+    // crossOrigin requests regardless of whether the location matches.
+
+
+    if (window.origin !== window.location.origin) {
+      return 'anonymous';
+    } // default is window.location
+
+
+    loc = loc || window.location;
+
+    if (!tempAnchor$1) {
+      tempAnchor$1 = document.createElement('a');
+    } // let the browser determine the full href for the url of this resource and then
+    // parse with the node url lib, we can't use the properties of the anchor element
+    // because they don't work in IE9 :(
+
+
+    tempAnchor$1.href = url;
+    url = parseUri(tempAnchor$1.href, {
+      strictMode: true
+    });
+    var samePort = !url.port && loc.port === '' || url.port === loc.port;
+    var protocol = url.protocol ? url.protocol + ":" : ''; // if cross origin
+
+    if (url.host !== loc.hostname || !samePort || protocol !== loc.protocol) {
+      return 'anonymous';
+    }
+
+    return '';
+  }
+  /**
+   * Determines the responseType of an XHR request based on the extension of the
+   * resource being loaded.
+   *
+   * @private
+   * @return {Resource.XHR_RESPONSE_TYPE} The responseType to use.
+   */
+  ;
+
+  _proto._determineXhrType = function _determineXhrType() {
+    return Resource._xhrTypeMap[this.extension] || Resource.XHR_RESPONSE_TYPE.TEXT;
+  }
+  /**
+   * Determines the loadType of a resource based on the extension of the
+   * resource being loaded.
+   *
+   * @private
+   * @return {Resource.LOAD_TYPE} The loadType to use.
+   */
+  ;
+
+  _proto._determineLoadType = function _determineLoadType() {
+    return Resource._loadTypeMap[this.extension] || Resource.LOAD_TYPE.XHR;
+  }
+  /**
+   * Extracts the extension (sans '.') of the file being loaded by the resource.
+   *
+   * @private
+   * @return {string} The extension.
+   */
+  ;
+
+  _proto._getExtension = function _getExtension() {
+    var url = this.url;
+    var ext = '';
+
+    if (this.isDataUrl) {
+      var slashIndex = url.indexOf('/');
+      ext = url.substring(slashIndex + 1, url.indexOf(';', slashIndex));
+    } else {
+      var queryStart = url.indexOf('?');
+      var hashStart = url.indexOf('#');
+      var index = Math.min(queryStart > -1 ? queryStart : url.length, hashStart > -1 ? hashStart : url.length);
+      url = url.substring(0, index);
+      ext = url.substring(url.lastIndexOf('.') + 1);
+    }
+
+    return ext.toLowerCase();
+  }
+  /**
+   * Determines the mime type of an XHR request based on the responseType of
+   * resource being loaded.
+   *
+   * @private
+   * @param {Resource.XHR_RESPONSE_TYPE} type - The type to get a mime type for.
+   * @return {string} The mime type to use.
+   */
+  ;
+
+  _proto._getMimeFromXhrType = function _getMimeFromXhrType(type) {
+    switch (type) {
+      case Resource.XHR_RESPONSE_TYPE.BUFFER:
+        return 'application/octet-binary';
+
+      case Resource.XHR_RESPONSE_TYPE.BLOB:
+        return 'application/blob';
+
+      case Resource.XHR_RESPONSE_TYPE.DOCUMENT:
+        return 'application/xml';
+
+      case Resource.XHR_RESPONSE_TYPE.JSON:
+        return 'application/json';
+
+      case Resource.XHR_RESPONSE_TYPE.DEFAULT:
+      case Resource.XHR_RESPONSE_TYPE.TEXT:
+      /* falls through */
+
+      default:
+        return 'text/plain';
+    }
+  };
+
+  _createClass(Resource, [{
+    key: "isDataUrl",
+    get: function get() {
+      return this._hasFlag(Resource.STATUS_FLAGS.DATA_URL);
+    }
+    /**
+     * Describes if this resource has finished loading. Is true when the resource has completely
+     * loaded.
+     *
+     * @readonly
+     * @member {boolean}
+     */
+
+  }, {
+    key: "isComplete",
+    get: function get() {
+      return this._hasFlag(Resource.STATUS_FLAGS.COMPLETE);
+    }
+    /**
+     * Describes if this resource is currently loading. Is true when the resource starts loading,
+     * and is false again when complete.
+     *
+     * @readonly
+     * @member {boolean}
+     */
+
+  }, {
+    key: "isLoading",
+    get: function get() {
+      return this._hasFlag(Resource.STATUS_FLAGS.LOADING);
+    }
+  }]);
+
+  return Resource;
+}();
 /**
  * The types of resources a resource could represent.
  *
@@ -25972,10 +25972,10 @@ var Resource$1 =
 
 
 Resource$1.STATUS_FLAGS = {
-    NONE: 0,
-    DATA_URL: 1 << 0,
-    COMPLETE: 1 << 1,
-    LOADING: 1 << 2
+  NONE: 0,
+  DATA_URL: 1 << 0,
+  COMPLETE: 1 << 1,
+  LOADING: 1 << 2
 };
 /**
  * The types of resources a resource could represent.
@@ -25986,13 +25986,13 @@ Resource$1.STATUS_FLAGS = {
  */
 
 Resource$1.TYPE = {
-    UNKNOWN: 0,
-    JSON: 1,
-    XML: 2,
-    IMAGE: 3,
-    AUDIO: 4,
-    VIDEO: 5,
-    TEXT: 6
+  UNKNOWN: 0,
+  JSON: 1,
+  XML: 2,
+  IMAGE: 3,
+  AUDIO: 4,
+  VIDEO: 5,
+  TEXT: 6
 };
 /**
  * The types of loading a resource can use.
@@ -26003,17 +26003,17 @@ Resource$1.TYPE = {
  */
 
 Resource$1.LOAD_TYPE = {
-    /** Uses XMLHttpRequest to load the resource. */
-    XHR: 1,
+  /** Uses XMLHttpRequest to load the resource. */
+  XHR: 1,
 
-    /** Uses an `Image` object to load the resource. */
-    IMAGE: 2,
+  /** Uses an `Image` object to load the resource. */
+  IMAGE: 2,
 
-    /** Uses an `Audio` object to load the resource. */
-    AUDIO: 3,
+  /** Uses an `Audio` object to load the resource. */
+  AUDIO: 3,
 
-    /** Uses a `Video` object to load the resource. */
-    VIDEO: 4
+  /** Uses a `Video` object to load the resource. */
+  VIDEO: 4
 };
 /**
  * The XHR ready states, used internally.
@@ -26024,76 +26024,76 @@ Resource$1.LOAD_TYPE = {
  */
 
 Resource$1.XHR_RESPONSE_TYPE = {
-    /** string */
-    DEFAULT: 'text',
+  /** string */
+  DEFAULT: 'text',
 
-    /** ArrayBuffer */
-    BUFFER: 'arraybuffer',
+  /** ArrayBuffer */
+  BUFFER: 'arraybuffer',
 
-    /** Blob */
-    BLOB: 'blob',
+  /** Blob */
+  BLOB: 'blob',
 
-    /** Document */
-    DOCUMENT: 'document',
+  /** Document */
+  DOCUMENT: 'document',
 
-    /** Object */
-    JSON: 'json',
+  /** Object */
+  JSON: 'json',
 
-    /** String */
-    TEXT: 'text'
+  /** String */
+  TEXT: 'text'
 };
 Resource$1._loadTypeMap = {
-    // images
-    gif: Resource$1.LOAD_TYPE.IMAGE,
-    png: Resource$1.LOAD_TYPE.IMAGE,
-    bmp: Resource$1.LOAD_TYPE.IMAGE,
-    jpg: Resource$1.LOAD_TYPE.IMAGE,
-    jpeg: Resource$1.LOAD_TYPE.IMAGE,
-    tif: Resource$1.LOAD_TYPE.IMAGE,
-    tiff: Resource$1.LOAD_TYPE.IMAGE,
-    webp: Resource$1.LOAD_TYPE.IMAGE,
-    tga: Resource$1.LOAD_TYPE.IMAGE,
-    svg: Resource$1.LOAD_TYPE.IMAGE,
-    'svg+xml': Resource$1.LOAD_TYPE.IMAGE,
-    // for SVG data urls
-    // audio
-    mp3: Resource$1.LOAD_TYPE.AUDIO,
-    ogg: Resource$1.LOAD_TYPE.AUDIO,
-    wav: Resource$1.LOAD_TYPE.AUDIO,
-    // videos
-    mp4: Resource$1.LOAD_TYPE.VIDEO,
-    webm: Resource$1.LOAD_TYPE.VIDEO
+  // images
+  gif: Resource$1.LOAD_TYPE.IMAGE,
+  png: Resource$1.LOAD_TYPE.IMAGE,
+  bmp: Resource$1.LOAD_TYPE.IMAGE,
+  jpg: Resource$1.LOAD_TYPE.IMAGE,
+  jpeg: Resource$1.LOAD_TYPE.IMAGE,
+  tif: Resource$1.LOAD_TYPE.IMAGE,
+  tiff: Resource$1.LOAD_TYPE.IMAGE,
+  webp: Resource$1.LOAD_TYPE.IMAGE,
+  tga: Resource$1.LOAD_TYPE.IMAGE,
+  svg: Resource$1.LOAD_TYPE.IMAGE,
+  'svg+xml': Resource$1.LOAD_TYPE.IMAGE,
+  // for SVG data urls
+  // audio
+  mp3: Resource$1.LOAD_TYPE.AUDIO,
+  ogg: Resource$1.LOAD_TYPE.AUDIO,
+  wav: Resource$1.LOAD_TYPE.AUDIO,
+  // videos
+  mp4: Resource$1.LOAD_TYPE.VIDEO,
+  webm: Resource$1.LOAD_TYPE.VIDEO
 };
 Resource$1._xhrTypeMap = {
-    // xml
-    xhtml: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
-    html: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
-    htm: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
-    xml: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
-    tmx: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
-    svg: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
-    // This was added to handle Tiled Tileset XML, but .tsx is also a TypeScript React Component.
-    // Since it is way less likely for people to be loading TypeScript files instead of Tiled files,
-    // this should probably be fine.
-    tsx: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
-    // images
-    gif: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    png: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    bmp: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    jpg: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    jpeg: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    tif: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    tiff: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    webp: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    tga: Resource$1.XHR_RESPONSE_TYPE.BLOB,
-    // json
-    json: Resource$1.XHR_RESPONSE_TYPE.JSON,
-    // text
-    text: Resource$1.XHR_RESPONSE_TYPE.TEXT,
-    txt: Resource$1.XHR_RESPONSE_TYPE.TEXT,
-    // fonts
-    ttf: Resource$1.XHR_RESPONSE_TYPE.BUFFER,
-    otf: Resource$1.XHR_RESPONSE_TYPE.BUFFER
+  // xml
+  xhtml: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
+  html: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
+  htm: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
+  xml: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
+  tmx: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
+  svg: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
+  // This was added to handle Tiled Tileset XML, but .tsx is also a TypeScript React Component.
+  // Since it is way less likely for people to be loading TypeScript files instead of Tiled files,
+  // this should probably be fine.
+  tsx: Resource$1.XHR_RESPONSE_TYPE.DOCUMENT,
+  // images
+  gif: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  png: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  bmp: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  jpg: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  jpeg: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  tif: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  tiff: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  webp: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  tga: Resource$1.XHR_RESPONSE_TYPE.BLOB,
+  // json
+  json: Resource$1.XHR_RESPONSE_TYPE.JSON,
+  // text
+  text: Resource$1.XHR_RESPONSE_TYPE.TEXT,
+  txt: Resource$1.XHR_RESPONSE_TYPE.TEXT,
+  // fonts
+  ttf: Resource$1.XHR_RESPONSE_TYPE.BUFFER,
+  otf: Resource$1.XHR_RESPONSE_TYPE.BUFFER
 }; // We can't set the `src` attribute to empty string, so on abort we set it to this 1px transparent gif
 
 Resource$1.EMPTY_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
@@ -26108,15 +26108,15 @@ Resource$1.EMPTY_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAA
  */
 
 function setExtMap(map, extname, val) {
-    if (extname && extname.indexOf('.') === 0) {
-        extname = extname.substring(1);
-    }
+  if (extname && extname.indexOf('.') === 0) {
+    extname = extname.substring(1);
+  }
 
-    if (!extname) {
-        return;
-    }
+  if (!extname) {
+    return;
+  }
 
-    map[extname] = val;
+  map[extname] = val;
 }
 /**
  * Quick helper to get string xhr type.
@@ -26128,7 +26128,7 @@ function setExtMap(map, extname, val) {
 
 
 function reqType(xhr) {
-    return xhr.toString().replace('object ', '');
+  return xhr.toString().replace('object ', '');
 }
 
 var _keyStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
@@ -26141,61 +26141,61 @@ var _keyStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=
  */
 
 function encodeBinary(input) {
-    var output = '';
-    var inx = 0;
+  var output = '';
+  var inx = 0;
 
-    while (inx < input.length) {
-        // Fill byte buffer array
-        var bytebuffer = [0, 0, 0];
-        var encodedCharIndexes = [0, 0, 0, 0];
+  while (inx < input.length) {
+    // Fill byte buffer array
+    var bytebuffer = [0, 0, 0];
+    var encodedCharIndexes = [0, 0, 0, 0];
 
-        for (var jnx = 0; jnx < bytebuffer.length; ++jnx) {
-            if (inx < input.length) {
-                // throw away high-order byte, as documented at:
-                // https://developer.mozilla.org/En/Using_XMLHttpRequest#Handling_binary_data
-                bytebuffer[jnx] = input.charCodeAt(inx++) & 0xff;
-            } else {
-                bytebuffer[jnx] = 0;
-            }
-        } // Get each encoded character, 6 bits at a time
-        // index 1: first 6 bits
-
-
-        encodedCharIndexes[0] = bytebuffer[0] >> 2; // index 2: second 6 bits (2 least significant bits from input byte 1 + 4 most significant bits from byte 2)
-
-        encodedCharIndexes[1] = (bytebuffer[0] & 0x3) << 4 | bytebuffer[1] >> 4; // index 3: third 6 bits (4 least significant bits from input byte 2 + 2 most significant bits from byte 3)
-
-        encodedCharIndexes[2] = (bytebuffer[1] & 0x0f) << 2 | bytebuffer[2] >> 6; // index 3: forth 6 bits (6 least significant bits from input byte 3)
-
-        encodedCharIndexes[3] = bytebuffer[2] & 0x3f; // Determine whether padding happened, and adjust accordingly
-
-        var paddingBytes = inx - (input.length - 1);
-
-        switch (paddingBytes) {
-            case 2:
-                // Set last 2 characters to padding char
-                encodedCharIndexes[3] = 64;
-                encodedCharIndexes[2] = 64;
-                break;
-
-            case 1:
-                // Set last character to padding char
-                encodedCharIndexes[3] = 64;
-                break;
-
-            default:
-                break;
-            // No padding - proceed
-        } // Now we will grab each appropriate character out of our keystring
-        // based on our index array and append it to the output string
+    for (var jnx = 0; jnx < bytebuffer.length; ++jnx) {
+      if (inx < input.length) {
+        // throw away high-order byte, as documented at:
+        // https://developer.mozilla.org/En/Using_XMLHttpRequest#Handling_binary_data
+        bytebuffer[jnx] = input.charCodeAt(inx++) & 0xff;
+      } else {
+        bytebuffer[jnx] = 0;
+      }
+    } // Get each encoded character, 6 bits at a time
+    // index 1: first 6 bits
 
 
-        for (var _jnx = 0; _jnx < encodedCharIndexes.length; ++_jnx) {
-            output += _keyStr.charAt(encodedCharIndexes[_jnx]);
-        }
+    encodedCharIndexes[0] = bytebuffer[0] >> 2; // index 2: second 6 bits (2 least significant bits from input byte 1 + 4 most significant bits from byte 2)
+
+    encodedCharIndexes[1] = (bytebuffer[0] & 0x3) << 4 | bytebuffer[1] >> 4; // index 3: third 6 bits (4 least significant bits from input byte 2 + 2 most significant bits from byte 3)
+
+    encodedCharIndexes[2] = (bytebuffer[1] & 0x0f) << 2 | bytebuffer[2] >> 6; // index 3: forth 6 bits (6 least significant bits from input byte 3)
+
+    encodedCharIndexes[3] = bytebuffer[2] & 0x3f; // Determine whether padding happened, and adjust accordingly
+
+    var paddingBytes = inx - (input.length - 1);
+
+    switch (paddingBytes) {
+      case 2:
+        // Set last 2 characters to padding char
+        encodedCharIndexes[3] = 64;
+        encodedCharIndexes[2] = 64;
+        break;
+
+      case 1:
+        // Set last character to padding char
+        encodedCharIndexes[3] = 64;
+        break;
+
+      default:
+        break;
+      // No padding - proceed
+    } // Now we will grab each appropriate character out of our keystring
+    // based on our index array and append it to the output string
+
+
+    for (var _jnx = 0; _jnx < encodedCharIndexes.length; ++_jnx) {
+      output += _keyStr.charAt(encodedCharIndexes[_jnx]);
     }
+  }
 
-    return output;
+  return output;
 }
 
 var Url$1 = window.URL || window.webkitURL;
@@ -26213,51 +26213,51 @@ var Url$1 = window.URL || window.webkitURL;
  */
 
 function parsing(resource, next) {
-    if (!resource.data) {
-        next();
-        return;
-    } // if this was an XHR load of a blob
-
-
-    if (resource.xhr && resource.xhrType === Resource$1.XHR_RESPONSE_TYPE.BLOB) {
-        // if there is no blob support we probably got a binary string back
-        if (!window.Blob || typeof resource.data === 'string') {
-            var type = resource.xhr.getResponseHeader('content-type'); // this is an image, convert the binary string into a data url
-
-            if (type && type.indexOf('image') === 0) {
-                resource.data = new Image();
-                resource.data.src = "data:" + type + ";base64," + encodeBinary(resource.xhr.responseText);
-                resource.type = Resource$1.TYPE.IMAGE; // wait until the image loads and then callback
-
-                resource.data.onload = function () {
-                    resource.data.onload = null;
-                    next();
-                }; // next will be called on load
-
-
-                return;
-            }
-        } // if content type says this is an image, then we should transform the blob into an Image object
-        else if (resource.data.type.indexOf('image') === 0) {
-            var src = Url$1.createObjectURL(resource.data);
-            resource.blob = resource.data;
-            resource.data = new Image();
-            resource.data.src = src;
-            resource.type = Resource$1.TYPE.IMAGE; // cleanup the no longer used blob after the image loads
-            // TODO: Is this correct? Will the image be invalid after revoking?
-
-            resource.data.onload = function () {
-                Url$1.revokeObjectURL(src);
-                resource.data.onload = null;
-                next();
-            }; // next will be called on load.
-
-
-            return;
-        }
-    }
-
+  if (!resource.data) {
     next();
+    return;
+  } // if this was an XHR load of a blob
+
+
+  if (resource.xhr && resource.xhrType === Resource$1.XHR_RESPONSE_TYPE.BLOB) {
+    // if there is no blob support we probably got a binary string back
+    if (!window.Blob || typeof resource.data === 'string') {
+      var type = resource.xhr.getResponseHeader('content-type'); // this is an image, convert the binary string into a data url
+
+      if (type && type.indexOf('image') === 0) {
+        resource.data = new Image();
+        resource.data.src = "data:" + type + ";base64," + encodeBinary(resource.xhr.responseText);
+        resource.type = Resource$1.TYPE.IMAGE; // wait until the image loads and then callback
+
+        resource.data.onload = function () {
+          resource.data.onload = null;
+          next();
+        }; // next will be called on load
+
+
+        return;
+      }
+    } // if content type says this is an image, then we should transform the blob into an Image object
+    else if (resource.data.type.indexOf('image') === 0) {
+        var src = Url$1.createObjectURL(resource.data);
+        resource.blob = resource.data;
+        resource.data = new Image();
+        resource.data.src = src;
+        resource.type = Resource$1.TYPE.IMAGE; // cleanup the no longer used blob after the image loads
+        // TODO: Is this correct? Will the image be invalid after revoking?
+
+        resource.data.onload = function () {
+          Url$1.revokeObjectURL(src);
+          resource.data.onload = null;
+          next();
+        }; // next will be called on load.
+
+
+        return;
+      }
+  }
+
+  next();
 }
 
 /**
@@ -26278,688 +26278,688 @@ var rgxExtractUrlHash = /(#[\w-]+)?$/;
  */
 
 var Loader =
-    /*#__PURE__*/
-    function () {
-        /**
-         * @param {string} [baseUrl=''] - The base url for all resources loaded by this loader.
-         * @param {number} [concurrency=10] - The number of resources to load concurrently.
-         */
-        function Loader(baseUrl, concurrency) {
-            var _this = this;
+/*#__PURE__*/
+function () {
+  /**
+   * @param {string} [baseUrl=''] - The base url for all resources loaded by this loader.
+   * @param {number} [concurrency=10] - The number of resources to load concurrently.
+   */
+  function Loader(baseUrl, concurrency) {
+    var _this = this;
 
-            if (baseUrl === void 0) {
-                baseUrl = '';
-            }
+    if (baseUrl === void 0) {
+      baseUrl = '';
+    }
 
-            if (concurrency === void 0) {
-                concurrency = 10;
-            }
+    if (concurrency === void 0) {
+      concurrency = 10;
+    }
 
-            /**
-             * The base url for all resources loaded by this loader.
-             *
-             * @member {string}
-             */
-            this.baseUrl = baseUrl;
-            /**
-             * The progress percent of the loader going through the queue.
-             *
-             * @member {number}
-             * @default 0
-             */
+    /**
+     * The base url for all resources loaded by this loader.
+     *
+     * @member {string}
+     */
+    this.baseUrl = baseUrl;
+    /**
+     * The progress percent of the loader going through the queue.
+     *
+     * @member {number}
+     * @default 0
+     */
 
-            this.progress = 0;
-            /**
-             * Loading state of the loader, true if it is currently loading resources.
-             *
-             * @member {boolean}
-             * @default false
-             */
+    this.progress = 0;
+    /**
+     * Loading state of the loader, true if it is currently loading resources.
+     *
+     * @member {boolean}
+     * @default false
+     */
 
-            this.loading = false;
-            /**
-             * A querystring to append to every URL added to the loader.
-             *
-             * This should be a valid query string *without* the question-mark (`?`). The loader will
-             * also *not* escape values for you. Make sure to escape your parameters with
-             * [`encodeURIComponent`](https://mdn.io/encodeURIComponent) before assigning this property.
-             *
-             * @example
-             * const loader = new Loader();
-             *
-             * loader.defaultQueryString = 'user=me&password=secret';
-             *
-             * // This will request 'image.png?user=me&password=secret'
-             * loader.add('image.png').load();
-             *
-             * loader.reset();
-             *
-             * // This will request 'image.png?v=1&user=me&password=secret'
-             * loader.add('iamge.png?v=1').load();
-             *
-             * @member {string}
-             * @default ''
-             */
+    this.loading = false;
+    /**
+     * A querystring to append to every URL added to the loader.
+     *
+     * This should be a valid query string *without* the question-mark (`?`). The loader will
+     * also *not* escape values for you. Make sure to escape your parameters with
+     * [`encodeURIComponent`](https://mdn.io/encodeURIComponent) before assigning this property.
+     *
+     * @example
+     * const loader = new Loader();
+     *
+     * loader.defaultQueryString = 'user=me&password=secret';
+     *
+     * // This will request 'image.png?user=me&password=secret'
+     * loader.add('image.png').load();
+     *
+     * loader.reset();
+     *
+     * // This will request 'image.png?v=1&user=me&password=secret'
+     * loader.add('iamge.png?v=1').load();
+     *
+     * @member {string}
+     * @default ''
+     */
 
-            this.defaultQueryString = '';
-            /**
-             * The middleware to run before loading each resource.
-             *
-             * @private
-             * @member {function[]}
-             */
+    this.defaultQueryString = '';
+    /**
+     * The middleware to run before loading each resource.
+     *
+     * @private
+     * @member {function[]}
+     */
 
-            this._beforeMiddleware = [];
-            /**
-             * The middleware to run after loading each resource.
-             *
-             * @private
-             * @member {function[]}
-             */
+    this._beforeMiddleware = [];
+    /**
+     * The middleware to run after loading each resource.
+     *
+     * @private
+     * @member {function[]}
+     */
 
-            this._afterMiddleware = [];
-            /**
-             * The tracks the resources we are currently completing parsing for.
-             *
-             * @private
-             * @member {Resource[]}
-             */
+    this._afterMiddleware = [];
+    /**
+     * The tracks the resources we are currently completing parsing for.
+     *
+     * @private
+     * @member {Resource[]}
+     */
 
-            this._resourcesParsing = [];
-            /**
-             * The `_loadResource` function bound with this object context.
-             *
-             * @private
-             * @member {function}
-             * @param {Resource} r - The resource to load
-             * @param {Function} d - The dequeue function
-             * @return {undefined}
-             */
+    this._resourcesParsing = [];
+    /**
+     * The `_loadResource` function bound with this object context.
+     *
+     * @private
+     * @member {function}
+     * @param {Resource} r - The resource to load
+     * @param {Function} d - The dequeue function
+     * @return {undefined}
+     */
 
-            this._boundLoadResource = function (r, d) {
-                return _this._loadResource(r, d);
-            };
-            /**
-             * The resources waiting to be loaded.
-             *
-             * @private
-             * @member {Resource[]}
-             */
-
-
-            this._queue = queue(this._boundLoadResource, concurrency);
-
-            this._queue.pause();
-            /**
-             * All the resources for this loader keyed by name.
-             *
-             * @member {object<string, Resource>}
-             */
+    this._boundLoadResource = function (r, d) {
+      return _this._loadResource(r, d);
+    };
+    /**
+     * The resources waiting to be loaded.
+     *
+     * @private
+     * @member {Resource[]}
+     */
 
 
-            this.resources = {};
-            /**
-             * Dispatched once per loaded or errored resource.
-             *
-             * The callback looks like {@link Loader.OnProgressSignal}.
-             *
-             * @member {Signal<Loader.OnProgressSignal>}
-             */
+    this._queue = queue(this._boundLoadResource, concurrency);
 
-            this.onProgress = new Signal();
-            /**
-             * Dispatched once per errored resource.
-             *
-             * The callback looks like {@link Loader.OnErrorSignal}.
-             *
-             * @member {Signal<Loader.OnErrorSignal>}
-             */
-
-            this.onError = new Signal();
-            /**
-             * Dispatched once per loaded resource.
-             *
-             * The callback looks like {@link Loader.OnLoadSignal}.
-             *
-             * @member {Signal<Loader.OnLoadSignal>}
-             */
-
-            this.onLoad = new Signal();
-            /**
-             * Dispatched when the loader begins to process the queue.
-             *
-             * The callback looks like {@link Loader.OnStartSignal}.
-             *
-             * @member {Signal<Loader.OnStartSignal>}
-             */
-
-            this.onStart = new Signal();
-            /**
-             * Dispatched when the queued resources all load.
-             *
-             * The callback looks like {@link Loader.OnCompleteSignal}.
-             *
-             * @member {Signal<Loader.OnCompleteSignal>}
-             */
-
-            this.onComplete = new Signal(); // Add default before middleware
-
-            for (var i = 0; i < Loader._defaultBeforeMiddleware.length; ++i) {
-                this.pre(Loader._defaultBeforeMiddleware[i]);
-            } // Add default after middleware
+    this._queue.pause();
+    /**
+     * All the resources for this loader keyed by name.
+     *
+     * @member {object<string, Resource>}
+     */
 
 
-            for (var _i = 0; _i < Loader._defaultAfterMiddleware.length; ++_i) {
-                this.use(Loader._defaultAfterMiddleware[_i]);
-            }
+    this.resources = {};
+    /**
+     * Dispatched once per loaded or errored resource.
+     *
+     * The callback looks like {@link Loader.OnProgressSignal}.
+     *
+     * @member {Signal<Loader.OnProgressSignal>}
+     */
+
+    this.onProgress = new Signal();
+    /**
+     * Dispatched once per errored resource.
+     *
+     * The callback looks like {@link Loader.OnErrorSignal}.
+     *
+     * @member {Signal<Loader.OnErrorSignal>}
+     */
+
+    this.onError = new Signal();
+    /**
+     * Dispatched once per loaded resource.
+     *
+     * The callback looks like {@link Loader.OnLoadSignal}.
+     *
+     * @member {Signal<Loader.OnLoadSignal>}
+     */
+
+    this.onLoad = new Signal();
+    /**
+     * Dispatched when the loader begins to process the queue.
+     *
+     * The callback looks like {@link Loader.OnStartSignal}.
+     *
+     * @member {Signal<Loader.OnStartSignal>}
+     */
+
+    this.onStart = new Signal();
+    /**
+     * Dispatched when the queued resources all load.
+     *
+     * The callback looks like {@link Loader.OnCompleteSignal}.
+     *
+     * @member {Signal<Loader.OnCompleteSignal>}
+     */
+
+    this.onComplete = new Signal(); // Add default before middleware
+
+    for (var i = 0; i < Loader._defaultBeforeMiddleware.length; ++i) {
+      this.pre(Loader._defaultBeforeMiddleware[i]);
+    } // Add default after middleware
+
+
+    for (var _i = 0; _i < Loader._defaultAfterMiddleware.length; ++_i) {
+      this.use(Loader._defaultAfterMiddleware[_i]);
+    }
+  }
+  /**
+   * When the progress changes the loader and resource are disaptched.
+   *
+   * @memberof Loader
+   * @callback OnProgressSignal
+   * @param {Loader} loader - The loader the progress is advancing on.
+   * @param {Resource} resource - The resource that has completed or failed to cause the progress to advance.
+   */
+
+  /**
+   * When an error occurrs the loader and resource are disaptched.
+   *
+   * @memberof Loader
+   * @callback OnErrorSignal
+   * @param {Loader} loader - The loader the error happened in.
+   * @param {Resource} resource - The resource that caused the error.
+   */
+
+  /**
+   * When a load completes the loader and resource are disaptched.
+   *
+   * @memberof Loader
+   * @callback OnLoadSignal
+   * @param {Loader} loader - The loader that laoded the resource.
+   * @param {Resource} resource - The resource that has completed loading.
+   */
+
+  /**
+   * When the loader starts loading resources it dispatches this callback.
+   *
+   * @memberof Loader
+   * @callback OnStartSignal
+   * @param {Loader} loader - The loader that has started loading resources.
+   */
+
+  /**
+   * When the loader completes loading resources it dispatches this callback.
+   *
+   * @memberof Loader
+   * @callback OnCompleteSignal
+   * @param {Loader} loader - The loader that has finished loading resources.
+   */
+
+  /**
+   * Options for a call to `.add()`.
+   *
+   * @see Loader#add
+   *
+   * @typedef {object} IAddOptions
+   * @property {string} [name] - The name of the resource to load, if not passed the url is used.
+   * @property {string} [key] - Alias for `name`.
+   * @property {string} [url] - The url for this resource, relative to the baseUrl of this loader.
+   * @property {string|boolean} [crossOrigin] - Is this request cross-origin? Default is to
+   *      determine automatically.
+   * @property {number} [timeout=0] - A timeout in milliseconds for the load. If the load takes
+   *      longer than this time it is cancelled and the load is considered a failure. If this value is
+   *      set to `0` then there is no explicit timeout.
+   * @property {Resource.LOAD_TYPE} [loadType=Resource.LOAD_TYPE.XHR] - How should this resource
+   *      be loaded?
+   * @property {Resource.XHR_RESPONSE_TYPE} [xhrType=Resource.XHR_RESPONSE_TYPE.DEFAULT] - How
+   *      should the data being loaded be interpreted when using XHR?
+   * @property {Resource.OnCompleteSignal} [onComplete] - Callback to add an an onComplete signal istener.
+   * @property {Resource.OnCompleteSignal} [callback] - Alias for `onComplete`.
+   * @property {Resource.IMetadata} [metadata] - Extra configuration for middleware and the Resource object.
+   */
+
+  /* eslint-disable require-jsdoc,valid-jsdoc */
+
+  /**
+   * Adds a resource (or multiple resources) to the loader queue.
+   *
+   * This function can take a wide variety of different parameters. The only thing that is always
+   * required the url to load. All the following will work:
+   *
+   * ```js
+   * loader
+   *     // normal param syntax
+   *     .add('key', 'http://...', function () {})
+   *     .add('http://...', function () {})
+   *     .add('http://...')
+   *
+   *     // object syntax
+   *     .add({
+   *         name: 'key2',
+   *         url: 'http://...'
+   *     }, function () {})
+   *     .add({
+   *         url: 'http://...'
+   *     }, function () {})
+   *     .add({
+   *         name: 'key3',
+   *         url: 'http://...'
+   *         onComplete: function () {}
+   *     })
+   *     .add({
+   *         url: 'https://...',
+   *         onComplete: function () {},
+   *         crossOrigin: true
+   *     })
+   *
+   *     // you can also pass an array of objects or urls or both
+   *     .add([
+   *         { name: 'key4', url: 'http://...', onComplete: function () {} },
+   *         { url: 'http://...', onComplete: function () {} },
+   *         'http://...'
+   *     ])
+   *
+   *     // and you can use both params and options
+   *     .add('key', 'http://...', { crossOrigin: true }, function () {})
+   *     .add('http://...', { crossOrigin: true }, function () {});
+   * ```
+   *
+   * @function
+   * @variation 1
+   * @param {string} name - The name of the resource to load.
+   * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
+   * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
+   * @return {this} Returns itself.
+   */
+
+  /**
+  * @function
+  * @variation 2
+  * @param {string} name - The name of the resource to load.
+  * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
+  * @param {IAddOptions} [options] - The options for the load.
+  * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
+  * @return {this} Returns itself.
+  */
+
+  /**
+  * @function
+  * @variation 3
+  * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
+  * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
+  * @return {this} Returns itself.
+  */
+
+  /**
+  * @function
+  * @variation 4
+  * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
+  * @param {IAddOptions} [options] - The options for the load.
+  * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
+  * @return {this} Returns itself.
+  */
+
+  /**
+  * @function
+  * @variation 5
+  * @param {IAddOptions} options - The options for the load. This object must contain a `url` property.
+  * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
+  * @return {this} Returns itself.
+  */
+
+  /**
+  * @function
+  * @variation 6
+  * @param {Array<IAddOptions|string>} resources - An array of resources to load, where each is
+  *      either an object with the options or a string url. If you pass an object, it must contain a `url` property.
+  * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
+  * @return {this} Returns itself.
+  */
+
+
+  var _proto = Loader.prototype;
+
+  _proto.add = function add(name, url, options, cb) {
+    // special case of an array of objects or urls
+    if (Array.isArray(name)) {
+      for (var i = 0; i < name.length; ++i) {
+        this.add(name[i]);
+      }
+
+      return this;
+    } // if an object is passed instead of params
+
+
+    if (typeof name === 'object') {
+      cb = url || name.callback || name.onComplete;
+      options = name;
+      url = name.url;
+      name = name.name || name.key || name.url;
+    } // case where no name is passed shift all args over by one.
+
+
+    if (typeof url !== 'string') {
+      cb = options;
+      options = url;
+      url = name;
+    } // now that we shifted make sure we have a proper url.
+
+
+    if (typeof url !== 'string') {
+      throw new Error('No url passed to add resource to loader.');
+    } // options are optional so people might pass a function and no options
+
+
+    if (typeof options === 'function') {
+      cb = options;
+      options = null;
+    } // if loading already you can only add resources that have a parent.
+
+
+    if (this.loading && (!options || !options.parentResource)) {
+      throw new Error('Cannot add resources while the loader is running.');
+    } // check if resource already exists.
+
+
+    if (this.resources[name]) {
+      throw new Error("Resource named \"" + name + "\" already exists.");
+    } // add base url if this isn't an absolute url
+
+
+    url = this._prepareUrl(url); // create the store the resource
+
+    this.resources[name] = new Resource$1(name, url, options);
+
+    if (typeof cb === 'function') {
+      this.resources[name].onAfterMiddleware.once(cb);
+    } // if actively loading, make sure to adjust progress chunks for that parent and its children
+
+
+    if (this.loading) {
+      var parent = options.parentResource;
+      var incompleteChildren = [];
+
+      for (var _i2 = 0; _i2 < parent.children.length; ++_i2) {
+        if (!parent.children[_i2].isComplete) {
+          incompleteChildren.push(parent.children[_i2]);
         }
-        /**
-         * When the progress changes the loader and resource are disaptched.
-         *
-         * @memberof Loader
-         * @callback OnProgressSignal
-         * @param {Loader} loader - The loader the progress is advancing on.
-         * @param {Resource} resource - The resource that has completed or failed to cause the progress to advance.
-         */
-
-        /**
-         * When an error occurrs the loader and resource are disaptched.
-         *
-         * @memberof Loader
-         * @callback OnErrorSignal
-         * @param {Loader} loader - The loader the error happened in.
-         * @param {Resource} resource - The resource that caused the error.
-         */
-
-        /**
-         * When a load completes the loader and resource are disaptched.
-         *
-         * @memberof Loader
-         * @callback OnLoadSignal
-         * @param {Loader} loader - The loader that laoded the resource.
-         * @param {Resource} resource - The resource that has completed loading.
-         */
-
-        /**
-         * When the loader starts loading resources it dispatches this callback.
-         *
-         * @memberof Loader
-         * @callback OnStartSignal
-         * @param {Loader} loader - The loader that has started loading resources.
-         */
-
-        /**
-         * When the loader completes loading resources it dispatches this callback.
-         *
-         * @memberof Loader
-         * @callback OnCompleteSignal
-         * @param {Loader} loader - The loader that has finished loading resources.
-         */
-
-        /**
-         * Options for a call to `.add()`.
-         *
-         * @see Loader#add
-         *
-         * @typedef {object} IAddOptions
-         * @property {string} [name] - The name of the resource to load, if not passed the url is used.
-         * @property {string} [key] - Alias for `name`.
-         * @property {string} [url] - The url for this resource, relative to the baseUrl of this loader.
-         * @property {string|boolean} [crossOrigin] - Is this request cross-origin? Default is to
-         *      determine automatically.
-         * @property {number} [timeout=0] - A timeout in milliseconds for the load. If the load takes
-         *      longer than this time it is cancelled and the load is considered a failure. If this value is
-         *      set to `0` then there is no explicit timeout.
-         * @property {Resource.LOAD_TYPE} [loadType=Resource.LOAD_TYPE.XHR] - How should this resource
-         *      be loaded?
-         * @property {Resource.XHR_RESPONSE_TYPE} [xhrType=Resource.XHR_RESPONSE_TYPE.DEFAULT] - How
-         *      should the data being loaded be interpreted when using XHR?
-         * @property {Resource.OnCompleteSignal} [onComplete] - Callback to add an an onComplete signal istener.
-         * @property {Resource.OnCompleteSignal} [callback] - Alias for `onComplete`.
-         * @property {Resource.IMetadata} [metadata] - Extra configuration for middleware and the Resource object.
-         */
-
-        /* eslint-disable require-jsdoc,valid-jsdoc */
-
-        /**
-         * Adds a resource (or multiple resources) to the loader queue.
-         *
-         * This function can take a wide variety of different parameters. The only thing that is always
-         * required the url to load. All the following will work:
-         *
-         * ```js
-         * loader
-         *     // normal param syntax
-         *     .add('key', 'http://...', function () {})
-         *     .add('http://...', function () {})
-         *     .add('http://...')
-         *
-         *     // object syntax
-         *     .add({
-         *         name: 'key2',
-         *         url: 'http://...'
-         *     }, function () {})
-         *     .add({
-         *         url: 'http://...'
-         *     }, function () {})
-         *     .add({
-         *         name: 'key3',
-         *         url: 'http://...'
-         *         onComplete: function () {}
-         *     })
-         *     .add({
-         *         url: 'https://...',
-         *         onComplete: function () {},
-         *         crossOrigin: true
-         *     })
-         *
-         *     // you can also pass an array of objects or urls or both
-         *     .add([
-         *         { name: 'key4', url: 'http://...', onComplete: function () {} },
-         *         { url: 'http://...', onComplete: function () {} },
-         *         'http://...'
-         *     ])
-         *
-         *     // and you can use both params and options
-         *     .add('key', 'http://...', { crossOrigin: true }, function () {})
-         *     .add('http://...', { crossOrigin: true }, function () {});
-         * ```
-         *
-         * @function
-         * @variation 1
-         * @param {string} name - The name of the resource to load.
-         * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
-         * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
-         * @return {this} Returns itself.
-         */
-
-        /**
-         * @function
-         * @variation 2
-         * @param {string} name - The name of the resource to load.
-         * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
-         * @param {IAddOptions} [options] - The options for the load.
-         * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
-         * @return {this} Returns itself.
-         */
-
-        /**
-         * @function
-         * @variation 3
-         * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
-         * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
-         * @return {this} Returns itself.
-         */
-
-        /**
-         * @function
-         * @variation 4
-         * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
-         * @param {IAddOptions} [options] - The options for the load.
-         * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
-         * @return {this} Returns itself.
-         */
-
-        /**
-         * @function
-         * @variation 5
-         * @param {IAddOptions} options - The options for the load. This object must contain a `url` property.
-         * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
-         * @return {this} Returns itself.
-         */
-
-        /**
-         * @function
-         * @variation 6
-         * @param {Array<IAddOptions|string>} resources - An array of resources to load, where each is
-         *      either an object with the options or a string url. If you pass an object, it must contain a `url` property.
-         * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
-         * @return {this} Returns itself.
-         */
-
-
-        var _proto = Loader.prototype;
-
-        _proto.add = function add(name, url, options, cb) {
-            // special case of an array of objects or urls
-            if (Array.isArray(name)) {
-                for (var i = 0; i < name.length; ++i) {
-                    this.add(name[i]);
-                }
-
-                return this;
-            } // if an object is passed instead of params
-
-
-            if (typeof name === 'object') {
-                cb = url || name.callback || name.onComplete;
-                options = name;
-                url = name.url;
-                name = name.name || name.key || name.url;
-            } // case where no name is passed shift all args over by one.
-
-
-            if (typeof url !== 'string') {
-                cb = options;
-                options = url;
-                url = name;
-            } // now that we shifted make sure we have a proper url.
-
-
-            if (typeof url !== 'string') {
-                throw new Error('No url passed to add resource to loader.');
-            } // options are optional so people might pass a function and no options
-
-
-            if (typeof options === 'function') {
-                cb = options;
-                options = null;
-            } // if loading already you can only add resources that have a parent.
-
-
-            if (this.loading && (!options || !options.parentResource)) {
-                throw new Error('Cannot add resources while the loader is running.');
-            } // check if resource already exists.
-
-
-            if (this.resources[name]) {
-                throw new Error("Resource named \"" + name + "\" already exists.");
-            } // add base url if this isn't an absolute url
-
-
-            url = this._prepareUrl(url); // create the store the resource
-
-            this.resources[name] = new Resource$1(name, url, options);
-
-            if (typeof cb === 'function') {
-                this.resources[name].onAfterMiddleware.once(cb);
-            } // if actively loading, make sure to adjust progress chunks for that parent and its children
-
-
-            if (this.loading) {
-                var parent = options.parentResource;
-                var incompleteChildren = [];
-
-                for (var _i2 = 0; _i2 < parent.children.length; ++_i2) {
-                    if (!parent.children[_i2].isComplete) {
-                        incompleteChildren.push(parent.children[_i2]);
-                    }
-                }
-
-                var fullChunk = parent.progressChunk * (incompleteChildren.length + 1); // +1 for parent
-
-                var eachChunk = fullChunk / (incompleteChildren.length + 2); // +2 for parent & new child
-
-                parent.children.push(this.resources[name]);
-                parent.progressChunk = eachChunk;
-
-                for (var _i3 = 0; _i3 < incompleteChildren.length; ++_i3) {
-                    incompleteChildren[_i3].progressChunk = eachChunk;
-                }
-
-                this.resources[name].progressChunk = eachChunk;
-            } // add the resource to the queue
-
-
-            this._queue.push(this.resources[name]);
-
-            return this;
-        }
-        /* eslint-enable require-jsdoc,valid-jsdoc */
-
-        /**
-         * Sets up a middleware function that will run *before* the
-         * resource is loaded.
-         *
-         * @param {function} fn - The middleware function to register.
-         * @return {this} Returns itself.
-         */
-        ;
-
-        _proto.pre = function pre(fn) {
-            this._beforeMiddleware.push(fn);
-
-            return this;
-        }
-        /**
-         * Sets up a middleware function that will run *after* the
-         * resource is loaded.
-         *
-         * @param {function} fn - The middleware function to register.
-         * @return {this} Returns itself.
-         */
-        ;
-
-        _proto.use = function use(fn) {
-            this._afterMiddleware.push(fn);
-
-            return this;
-        }
-        /**
-         * Resets the queue of the loader to prepare for a new load.
-         *
-         * @return {this} Returns itself.
-         */
-        ;
-
-        _proto.reset = function reset() {
-            this.progress = 0;
-            this.loading = false;
-
-            this._queue.kill();
-
-            this._queue.pause(); // abort all resource loads
-
-
-            for (var k in this.resources) {
-                var res = this.resources[k];
-
-                if (res._onLoadBinding) {
-                    res._onLoadBinding.detach();
-                }
-
-                if (res.isLoading) {
-                    res.abort();
-                }
-            }
-
-            this.resources = {};
-            return this;
-        }
-        /**
-         * Starts loading the queued resources.
-         *
-         * @param {function} [cb] - Optional callback that will be bound to the `complete` event.
-         * @return {this} Returns itself.
-         */
-        ;
-
-        _proto.load = function load(cb) {
-            // register complete callback if they pass one
-            if (typeof cb === 'function') {
-                this.onComplete.once(cb);
-            } // if the queue has already started we are done here
-
-
-            if (this.loading) {
-                return this;
-            }
-
-            if (this._queue.idle()) {
-                this._onStart();
-
-                this._onComplete();
-            } else {
-                // distribute progress chunks
-                var numTasks = this._queue._tasks.length;
-                var chunk = MAX_PROGRESS / numTasks;
-
-                for (var i = 0; i < this._queue._tasks.length; ++i) {
-                    this._queue._tasks[i].data.progressChunk = chunk;
-                } // notify we are starting
-
-
-                this._onStart(); // start loading
-
-
-                this._queue.resume();
-            }
-
-            return this;
-        }
-        /**
-         * The number of resources to load concurrently.
-         *
-         * @member {number}
-         * @default 10
-         */
-        ;
-
-        /**
-         * Prepares a url for usage based on the configuration of this object
-         *
-         * @private
-         * @param {string} url - The url to prepare.
-         * @return {string} The prepared url.
-         */
-        _proto._prepareUrl = function _prepareUrl(url) {
-            var parsedUrl = parseUri(url, {
-                strictMode: true
-            });
-            var result; // absolute url, just use it as is.
-
-            if (parsedUrl.protocol || !parsedUrl.path || url.indexOf('//') === 0) {
-                result = url;
-            } // if baseUrl doesn't end in slash and url doesn't start with slash, then add a slash inbetween
-            else if (this.baseUrl.length && this.baseUrl.lastIndexOf('/') !== this.baseUrl.length - 1 && url.charAt(0) !== '/') {
-                result = this.baseUrl + "/" + url;
-            } else {
-                result = this.baseUrl + url;
-            } // if we need to add a default querystring, there is a bit more work
-
-
-            if (this.defaultQueryString) {
-                var hash = rgxExtractUrlHash.exec(result)[0];
-                result = result.substr(0, result.length - hash.length);
-
-                if (result.indexOf('?') !== -1) {
-                    result += "&" + this.defaultQueryString;
-                } else {
-                    result += "?" + this.defaultQueryString;
-                }
-
-                result += hash;
-            }
-
-            return result;
-        }
-        /**
-         * Loads a single resource.
-         *
-         * @private
-         * @param {Resource} resource - The resource to load.
-         * @param {function} dequeue - The function to call when we need to dequeue this item.
-         */
-        ;
-
-        _proto._loadResource = function _loadResource(resource, dequeue) {
-            var _this2 = this;
-
-            resource._dequeue = dequeue; // run before middleware
-
-            eachSeries(this._beforeMiddleware, function (fn, next) {
-                fn.call(_this2, resource, function () {
-                    // if the before middleware marks the resource as complete,
-                    // break and don't process any more before middleware
-                    next(resource.isComplete ? {} : null);
-                });
-            }, function () {
-                if (resource.isComplete) {
-                    _this2._onLoad(resource);
-                } else {
-                    resource._onLoadBinding = resource.onComplete.once(_this2._onLoad, _this2);
-                    resource.load();
-                }
-            }, true);
-        }
-        /**
-         * Called once loading has started.
-         *
-         * @private
-         */
-        ;
-
-        _proto._onStart = function _onStart() {
-            this.progress = 0;
-            this.loading = true;
-            this.onStart.dispatch(this);
-        }
-        /**
-         * Called once each resource has loaded.
-         *
-         * @private
-         */
-        ;
-
-        _proto._onComplete = function _onComplete() {
-            this.progress = MAX_PROGRESS;
-            this.loading = false;
-            this.onComplete.dispatch(this, this.resources);
-        }
-        /**
-         * Called each time a resources is loaded.
-         *
-         * @private
-         * @param {Resource} resource - The resource that was loaded
-         */
-        ;
-
-        _proto._onLoad = function _onLoad(resource) {
-            var _this3 = this;
-
-            resource._onLoadBinding = null; // remove this resource from the async queue, and add it to our list of resources that are being parsed
-
-            this._resourcesParsing.push(resource);
-
-            resource._dequeue(); // run all the after middleware for this resource
-
-
-            eachSeries(this._afterMiddleware, function (fn, next) {
-                fn.call(_this3, resource, next);
-            }, function () {
-                resource.onAfterMiddleware.dispatch(resource);
-                _this3.progress = Math.min(MAX_PROGRESS, _this3.progress + resource.progressChunk);
-
-                _this3.onProgress.dispatch(_this3, resource);
-
-                if (resource.error) {
-                    _this3.onError.dispatch(resource.error, _this3, resource);
-                } else {
-                    _this3.onLoad.dispatch(_this3, resource);
-                }
-
-                _this3._resourcesParsing.splice(_this3._resourcesParsing.indexOf(resource), 1); // do completion check
-
-
-                if (_this3._queue.idle() && _this3._resourcesParsing.length === 0) {
-                    _this3._onComplete();
-                }
-            }, true);
-        };
-
-        _createClass(Loader, [{
-            key: "concurrency",
-            get: function get() {
-                return this._queue.concurrency;
-            } // eslint-disable-next-line require-jsdoc
-            ,
-            set: function set(concurrency) {
-                this._queue.concurrency = concurrency;
-            }
-        }]);
-
-        return Loader;
-    }();
+      }
+
+      var fullChunk = parent.progressChunk * (incompleteChildren.length + 1); // +1 for parent
+
+      var eachChunk = fullChunk / (incompleteChildren.length + 2); // +2 for parent & new child
+
+      parent.children.push(this.resources[name]);
+      parent.progressChunk = eachChunk;
+
+      for (var _i3 = 0; _i3 < incompleteChildren.length; ++_i3) {
+        incompleteChildren[_i3].progressChunk = eachChunk;
+      }
+
+      this.resources[name].progressChunk = eachChunk;
+    } // add the resource to the queue
+
+
+    this._queue.push(this.resources[name]);
+
+    return this;
+  }
+  /* eslint-enable require-jsdoc,valid-jsdoc */
+
+  /**
+   * Sets up a middleware function that will run *before* the
+   * resource is loaded.
+   *
+   * @param {function} fn - The middleware function to register.
+   * @return {this} Returns itself.
+   */
+  ;
+
+  _proto.pre = function pre(fn) {
+    this._beforeMiddleware.push(fn);
+
+    return this;
+  }
+  /**
+   * Sets up a middleware function that will run *after* the
+   * resource is loaded.
+   *
+   * @param {function} fn - The middleware function to register.
+   * @return {this} Returns itself.
+   */
+  ;
+
+  _proto.use = function use(fn) {
+    this._afterMiddleware.push(fn);
+
+    return this;
+  }
+  /**
+   * Resets the queue of the loader to prepare for a new load.
+   *
+   * @return {this} Returns itself.
+   */
+  ;
+
+  _proto.reset = function reset() {
+    this.progress = 0;
+    this.loading = false;
+
+    this._queue.kill();
+
+    this._queue.pause(); // abort all resource loads
+
+
+    for (var k in this.resources) {
+      var res = this.resources[k];
+
+      if (res._onLoadBinding) {
+        res._onLoadBinding.detach();
+      }
+
+      if (res.isLoading) {
+        res.abort();
+      }
+    }
+
+    this.resources = {};
+    return this;
+  }
+  /**
+   * Starts loading the queued resources.
+   *
+   * @param {function} [cb] - Optional callback that will be bound to the `complete` event.
+   * @return {this} Returns itself.
+   */
+  ;
+
+  _proto.load = function load(cb) {
+    // register complete callback if they pass one
+    if (typeof cb === 'function') {
+      this.onComplete.once(cb);
+    } // if the queue has already started we are done here
+
+
+    if (this.loading) {
+      return this;
+    }
+
+    if (this._queue.idle()) {
+      this._onStart();
+
+      this._onComplete();
+    } else {
+      // distribute progress chunks
+      var numTasks = this._queue._tasks.length;
+      var chunk = MAX_PROGRESS / numTasks;
+
+      for (var i = 0; i < this._queue._tasks.length; ++i) {
+        this._queue._tasks[i].data.progressChunk = chunk;
+      } // notify we are starting
+
+
+      this._onStart(); // start loading
+
+
+      this._queue.resume();
+    }
+
+    return this;
+  }
+  /**
+   * The number of resources to load concurrently.
+   *
+   * @member {number}
+   * @default 10
+   */
+  ;
+
+  /**
+   * Prepares a url for usage based on the configuration of this object
+   *
+   * @private
+   * @param {string} url - The url to prepare.
+   * @return {string} The prepared url.
+   */
+  _proto._prepareUrl = function _prepareUrl(url) {
+    var parsedUrl = parseUri(url, {
+      strictMode: true
+    });
+    var result; // absolute url, just use it as is.
+
+    if (parsedUrl.protocol || !parsedUrl.path || url.indexOf('//') === 0) {
+      result = url;
+    } // if baseUrl doesn't end in slash and url doesn't start with slash, then add a slash inbetween
+    else if (this.baseUrl.length && this.baseUrl.lastIndexOf('/') !== this.baseUrl.length - 1 && url.charAt(0) !== '/') {
+        result = this.baseUrl + "/" + url;
+      } else {
+        result = this.baseUrl + url;
+      } // if we need to add a default querystring, there is a bit more work
+
+
+    if (this.defaultQueryString) {
+      var hash = rgxExtractUrlHash.exec(result)[0];
+      result = result.substr(0, result.length - hash.length);
+
+      if (result.indexOf('?') !== -1) {
+        result += "&" + this.defaultQueryString;
+      } else {
+        result += "?" + this.defaultQueryString;
+      }
+
+      result += hash;
+    }
+
+    return result;
+  }
+  /**
+   * Loads a single resource.
+   *
+   * @private
+   * @param {Resource} resource - The resource to load.
+   * @param {function} dequeue - The function to call when we need to dequeue this item.
+   */
+  ;
+
+  _proto._loadResource = function _loadResource(resource, dequeue) {
+    var _this2 = this;
+
+    resource._dequeue = dequeue; // run before middleware
+
+    eachSeries(this._beforeMiddleware, function (fn, next) {
+      fn.call(_this2, resource, function () {
+        // if the before middleware marks the resource as complete,
+        // break and don't process any more before middleware
+        next(resource.isComplete ? {} : null);
+      });
+    }, function () {
+      if (resource.isComplete) {
+        _this2._onLoad(resource);
+      } else {
+        resource._onLoadBinding = resource.onComplete.once(_this2._onLoad, _this2);
+        resource.load();
+      }
+    }, true);
+  }
+  /**
+   * Called once loading has started.
+   *
+   * @private
+   */
+  ;
+
+  _proto._onStart = function _onStart() {
+    this.progress = 0;
+    this.loading = true;
+    this.onStart.dispatch(this);
+  }
+  /**
+   * Called once each resource has loaded.
+   *
+   * @private
+   */
+  ;
+
+  _proto._onComplete = function _onComplete() {
+    this.progress = MAX_PROGRESS;
+    this.loading = false;
+    this.onComplete.dispatch(this, this.resources);
+  }
+  /**
+   * Called each time a resources is loaded.
+   *
+   * @private
+   * @param {Resource} resource - The resource that was loaded
+   */
+  ;
+
+  _proto._onLoad = function _onLoad(resource) {
+    var _this3 = this;
+
+    resource._onLoadBinding = null; // remove this resource from the async queue, and add it to our list of resources that are being parsed
+
+    this._resourcesParsing.push(resource);
+
+    resource._dequeue(); // run all the after middleware for this resource
+
+
+    eachSeries(this._afterMiddleware, function (fn, next) {
+      fn.call(_this3, resource, next);
+    }, function () {
+      resource.onAfterMiddleware.dispatch(resource);
+      _this3.progress = Math.min(MAX_PROGRESS, _this3.progress + resource.progressChunk);
+
+      _this3.onProgress.dispatch(_this3, resource);
+
+      if (resource.error) {
+        _this3.onError.dispatch(resource.error, _this3, resource);
+      } else {
+        _this3.onLoad.dispatch(_this3, resource);
+      }
+
+      _this3._resourcesParsing.splice(_this3._resourcesParsing.indexOf(resource), 1); // do completion check
+
+
+      if (_this3._queue.idle() && _this3._resourcesParsing.length === 0) {
+        _this3._onComplete();
+      }
+    }, true);
+  };
+
+  _createClass(Loader, [{
+    key: "concurrency",
+    get: function get() {
+      return this._queue.concurrency;
+    } // eslint-disable-next-line require-jsdoc
+    ,
+    set: function set(concurrency) {
+      this._queue.concurrency = concurrency;
+    }
+  }]);
+
+  return Loader;
+}();
 /**
  * A default array of middleware to run before loading each resource.
  * Each of these middlewares are added to any new Loader instances when they are created.
@@ -26989,9 +26989,9 @@ Loader._defaultAfterMiddleware = [];
  */
 
 Loader.pre = function LoaderPreStatic(fn) {
-    Loader._defaultBeforeMiddleware.push(fn);
+  Loader._defaultBeforeMiddleware.push(fn);
 
-    return Loader;
+  return Loader;
 };
 /**
  * Sets up a middleware function that will run *after* the
@@ -27004,9 +27004,9 @@ Loader.pre = function LoaderPreStatic(fn) {
 
 
 Loader.use = function LoaderUseStatic(fn) {
-    Loader._defaultAfterMiddleware.push(fn);
+  Loader._defaultAfterMiddleware.push(fn);
 
-    return Loader;
+  return Loader;
 };
 
 /*!
@@ -27325,11 +27325,11 @@ var AppLoaderPlugin = /** @class */ (function () {
 }());
 
 /**
- * Reference to **{@link https://github.com/englercj/resource-loader}**'s Resource class.
- * @see https://englercj.github.io/resource-loader/classes/resource.html
- * @class LoaderResource
- * @memberof PIXI
- */
+* Reference to **{@link https://github.com/englercj/resource-loader}**'s Resource class.
+* @see https://englercj.github.io/resource-loader/classes/resource.html
+* @class LoaderResource
+* @memberof PIXI
+*/
 var LoaderResource = Resource$1;
 
 /*!
@@ -27682,7 +27682,7 @@ var CompressedTextureResource = /** @class */ (function (_super) {
             // ViewableBuffer doesn't support byteOffset :-( so allow source to be Uint8Array
             _this._levelBuffers = options.levelBuffers
                 || CompressedTextureResource._createLevelBuffers(source instanceof Uint8Array ? source : _this.buffer.uint8View, _this.format, _this.levels, 4, 4, // PVRTC has 8x4 blocks in 2bpp mode
-                    _this.width, _this.height);
+                _this.width, _this.height);
         }
         return _this;
     }
@@ -27713,7 +27713,7 @@ var CompressedTextureResource = /** @class */ (function (_super) {
      */
     CompressedTextureResource.prototype.onBlobLoaded = function () {
         this._levelBuffers = CompressedTextureResource._createLevelBuffers(this.buffer.uint8View, this.format, this.levels, 4, 4, // PVRTC has 8x4 blocks in 2bpp mode
-            this.width, this.height);
+        this.width, this.height);
     };
     /**
      * Returns the key (to ContextSystem#extensions) for the WebGL extension supporting the compression format
@@ -30075,7 +30075,7 @@ function buildNonNativeLine(graphicsData, graphicsGeometry) {
             }
         }
         else // inside miter is NOT ok
-        {
+         {
             verts.push(x1 - (perpx * innerWeight), y1 - (perpy * innerWeight)); // first segment's inner vertex
             verts.push(x1 + (perpx * outerWeight), y1 + (perpy * outerWeight)); // first segment's outer vertex
             if (style.join === LINE_JOIN.BEVEL || pdist / widthSquared > miterLimitSquared) { ; }
@@ -30157,7 +30157,7 @@ function buildNativeLine(graphicsData, graphicsGeometry) {
     var points = graphicsData.points || shape.points;
     var closedShape = shape.type !== SHAPES.POLY || shape.closeStroke;
     if (points.length === 0)
-    { return; }
+        { return; }
     var verts = graphicsGeometry.points;
     var indices = graphicsGeometry.indices;
     var length = points.length / 2;
@@ -30983,7 +30983,7 @@ var GraphicsGeometry = /** @class */ (function (_super) {
             for (var j = 0; j < 2; j++) {
                 var style = (j === 0) ? fillStyle : lineStyle;
                 if (!style.visible)
-                { continue; }
+                    { continue; }
                 var nextTexture = style.texture.baseTexture;
                 var index_1 = this.indices.length;
                 var attribIndex = this.points.length / 2;
@@ -30996,7 +30996,7 @@ var GraphicsGeometry = /** @class */ (function (_super) {
                 }
                 var size = (this.points.length / 2) - attribIndex;
                 if (size === 0)
-                { continue; }
+                    { continue; }
                 // close batch if style is different
                 if (batchPart && !this._compareStyles(currentStyle, style)) {
                     batchPart.end(index_1, attribIndex);
@@ -31075,9 +31075,9 @@ var GraphicsGeometry = /** @class */ (function (_super) {
             var fill = data.fillStyle;
             var line = data.lineStyle;
             if (fill && !fill.texture.baseTexture.valid)
-            { return false; }
+                { return false; }
             if (line && !line.texture.baseTexture.valid)
-            { return false; }
+                { return false; }
         }
         return true;
     };
@@ -32643,7 +32643,7 @@ var tempPoint = new Point();
 var indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 /**
  * The Sprite object is the base for all textured objects that are rendered to the screen
- *
+*
  * A sprite can be created directly from an image like this:
  *
  * ```js
@@ -32934,12 +32934,12 @@ var Sprite = /** @class */ (function (_super) {
         vertexData[7] = (d * h0) + (b * w1) + ty;
     };
     /**
-     *
-     * Renders the object using the WebGL renderer
-     *
-     * @protected
-     * @param {PIXI.Renderer} renderer - The webgl renderer to use.
-     */
+    *
+    * Renders the object using the WebGL renderer
+    *
+    * @protected
+    * @param {PIXI.Renderer} renderer - The webgl renderer to use.
+    */
     Sprite.prototype._render = function (renderer) {
         this.calculateVertices();
         renderer.batch.setObjectRenderer(renderer.plugins[this.pluginName]);
@@ -37242,7 +37242,7 @@ var MeshMaterial = /** @class */ (function (_super) {
          */
         set: function (value) {
             if (value === this._alpha)
-            { return; }
+                { return; }
             this._alpha = value;
             this._colorDirty = true;
         },
@@ -37260,7 +37260,7 @@ var MeshMaterial = /** @class */ (function (_super) {
          */
         set: function (value) {
             if (value === this._tint)
-            { return; }
+                { return; }
             this._tint = value;
             this._tintRGB = (value >> 16) + (value & 0xff00) + ((value & 0xff) << 16);
             this._colorDirty = true;
@@ -38734,7 +38734,7 @@ var BitmapText = /** @class */ (function (_super) {
         },
         set: function (value) {
             if (this._tint === value)
-            { return; }
+                { return; }
             this._tint = value;
             for (var i = 0; i < this._activePagesMeshData.length; i++) {
                 this._activePagesMeshData[i].mesh.tint = value;
@@ -39785,11 +39785,11 @@ var BlurFilterPass = /** @class */ (function (_super) {
         var _this = this;
         var vertSrc = generateBlurVertSource(kernelSize, horizontal);
         var fragSrc = generateBlurFragSource(kernelSize);
-        _this = _super.call(this,
-            // vertex shader
-            vertSrc,
-            // fragment shader
-            fragSrc) || this;
+        _this = _super.call(this, 
+        // vertex shader
+        vertSrc, 
+        // fragment shader
+        fragSrc) || this;
         _this.horizontal = horizontal;
         _this.resolution = resolution;
         _this._quality = 0;
@@ -39816,7 +39816,7 @@ var BlurFilterPass = /** @class */ (function (_super) {
         }
         else {
             if (this.horizontal) // eslint-disable-line
-            {
+             {
                 this.uniforms.strength = (1 / filterManager.renderer.width) * (filterManager.renderer.width / input.width);
             }
             else {
@@ -41320,10 +41320,10 @@ var __assign = function() {
 function __rest(s, e) {
     var t = {};
     for (var p in s) { if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-    { t[p] = s[p]; } }
+        { t[p] = s[p]; } }
     if (s != null && typeof Object.getOwnPropertySymbols === "function")
-    { for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) { if (e.indexOf(p[i]) < 0)
-    { t[p[i]] = s[p[i]]; } } }
+        { for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) { if (e.indexOf(p[i]) < 0)
+            { t[p[i]] = s[p[i]]; } } }
     return t;
 }
 
@@ -41415,7 +41415,7 @@ function __spread() {
     var arguments$1 = arguments;
 
     for (var ar = [], i = 0; i < arguments.length; i++)
-    { ar = ar.concat(__read(arguments$1[i])); }
+        { ar = ar.concat(__read(arguments$1[i])); }
     return ar;
 }
 
@@ -42904,7 +42904,7 @@ var RopeGeometry = /** @class */ (function (_super) {
     RopeGeometry.prototype.build = function () {
         var points = this.points;
         if (!points)
-        { return; }
+            { return; }
         var vertexBuffer = this.getBuffer('aVertexPosition');
         var uvBuffer = this.getBuffer('aTextureCoord');
         var indexBuffer = this.getIndex();
@@ -43865,11 +43865,11 @@ var AnimatedSprite = /** @class */ (function (_super) {
     });
     Object.defineProperty(AnimatedSprite.prototype, "currentFrame", {
         /**
-         * The AnimatedSprites current frame index.
-         *
-         * @member {number}
-         * @readonly
-         */
+        * The AnimatedSprites current frame index.
+        *
+        * @member {number}
+        * @readonly
+        */
         get: function () {
             var currentFrame = Math.floor(this._currentTime) % this._textures.length;
             if (currentFrame < 0) {
